@@ -30,6 +30,7 @@ class about
 {
 public:
 	about( const Context& ) ;
+	void keyPressed( utility::mainWindowKeyCombo ) ;
 	void init_done() ;
 	void enableAll() ;
 	void disableAll() ;
@@ -38,7 +39,10 @@ public:
 	void tabEntered() ;
 	void tabExited() ;
 	void exiting() ;
+	void textAlignmentChanged( Qt::LayoutDirection ) ;
 private:
+	QString language() ;
+	QString QtVersion() ;
 	const Context& m_ctx ;
 };
 

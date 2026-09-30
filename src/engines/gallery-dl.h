@@ -23,7 +23,7 @@
 
 class settings ;
 
-class gallery_dl : public engines::engine::functions
+class gallery_dl : public engines::engine::baseEngine
 {
 public:
 	static const char * testData() ;
@@ -31,12 +31,12 @@ public:
 	~gallery_dl() override ;
 	gallery_dl( const engines&,const engines::engine&,QJsonObject& ) ;
 
-	class gallery_dlFilter : public engines::engine::functions::filter
+	class gallery_dlFilter : public engines::engine::baseEngine::filter
 	{
 	public:
 		gallery_dlFilter( settings&,const engines::engine&,int ) ;
 
-		const QByteArray& operator()( const Logger::Data& e ) override ;
+		const QByteArray& operator()( Logger::Data& e ) override ;
 
 		~gallery_dlFilter() override ;
 	private:
@@ -44,20 +44,38 @@ public:
 		QString m_downloaded ;
 		QByteArray m_tmp ;
 		QByteArray m_dir ;
-		engines::engine::functions::preProcessing m_preProcessing ;
+		engines::engine::baseEngine::preProcessing m_preProcessing ;
 	} ;
 
-	engines::engine::functions::DataFilter Filter( int ) override ;
+	std::vector< QByteArray > parseJsonData( QByteArray& data ) override ;
 
-	void setProxySetting( QStringList&,const QString& ) override ;
+	QJsonObject parseJson( const QString&,const QByteArray& ) override ;
 
-	void runCommandOnDownloadedFile( const QString&,const QString& ) override ;
+	util::Json parsePlayListData( const QString&,const QByteArray& ) override ;
 
-	void updateDownLoadCmdOptions( const engines::engine::functions::updateOpts&,bool ) override ;
+	engines::engine::baseEngine::onlineVersion versionInfoFromGithub( const QByteArray& ) override ;
+
+	engines::metadata parseJsonDataFromGitHub( const QJsonDocument& ) override ;
+
+	engines::engine::baseEngine::DataFilter Filter( int ) override ;
+
+	QString downloadFolder( const QString& ) override ;
+
+	void openLocalFile( const engines::engine::baseEngine::localFile& ) override ;
+
+	void runCommandOnDownloadedFile( const std::vector< QByteArray >& ) override ;
+
+	void setProxySetting( engines::engine::baseEngine::optionsEnvironment&,QStringList&,const QString& ) override ;
+
+	void updateDownLoadCmdOptions( const engines::engine::baseEngine::updateOpts&,
+				       bool,
+				       const QStringList& ) override ;
 
 	QString updateTextOnCompleteDownlod( const QString& uiText,
 					     const QString& bkText,
 					     const QString& downloadingOptions,
-					     const engines::engine::functions::finishedState& ) override ;
+					     const QString& tabName,
+					     const engines::engine::baseEngine::finishedState& ) override ;
 private:
+	bool parse( const int&,std::vector< QByteArray >& mm,QByteArray& ) ;
 };

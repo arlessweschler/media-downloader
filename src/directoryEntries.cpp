@@ -26,171 +26,28 @@
 #include <cstring>
 #include <cwchar>
 
-#ifdef Q_OS_LINUX
-
-#include <dirent.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <cstring>
-#include <string>
-#include <limits.h>
-
-template< typename Continue >
-class dManager
-{
-public:
-	dManager( const QString& path,Continue c ) :
-		m_path( path.toUtf8().constData() ),
-		m_continue( std::move( c ) )
-	{
-	}
-	static bool supportsCancel()
-	{
-		return true ;
-	}
-	directoryEntries readAll()
-	{
-		auto handle = utils::misc::unique_rsc( opendir,closedir,m_path.data() ) ;
-
-		if( handle ){
-
-			directoryEntries entries ;
-
-			while( m_continue && this->read( entries,m_path,handle.get() ) ){}
-
-			return entries ;
-		}else{
-			return {} ;
-		}
-	}
-	void removeDirectoryContents()
-	{
-		this->removeDirectory( m_path,[](){} ) ;
-	}
-	void removeDirectory()
-	{
-		this->removeDirectory( m_path,[ & ](){ rmdir( m_path.data() ) ; } ) ;
-	}
-private:
-	template< typename Function >
-	void removeDirectory( const std::string& pm,Function function )
-	{
-		auto handle = utils::misc::unique_rsc( opendir,closedir,pm.data() ) ;
-
-		if( handle ){
-
-			while( m_continue ){
-
-				auto e = readdir( handle.get() ) ;
-
-				if( e ){
-
-					this->removePath( pm,e->d_name ) ;
-				}else{
-					break ;
-				}
-			}
-
-			function() ;
-		}
-	}
-	void removePath( const std::string& pm,const char * name )
-	{
-		if( std::strcmp( name,"." ) != 0 && std::strcmp( name,".." ) != 0 ){
-
-			struct stat m ;
-
-			auto pp = pm + "/" + name ;
-
-			if( stat( pp.data(),&m ) == 0 ){
-
-				if( S_ISREG( m.st_mode ) ){
-
-					unlink( pp.data() ) ;
-
-				}else if( S_ISDIR( m.st_mode ) ){
-
-					this->removeDirectory( pp,[ pp ](){ rmdir( pp.data() ) ; } ) ;
-				}
-			}
-		}
-	}
-	bool read( directoryEntries& entries,const std::string& mm,DIR * dir )
-	{
-		auto e = readdir( dir ) ;
-
-		if( e ){
-			const auto name = e->d_name ;
-
-			if( entries.valid( name ) ){
-
-				struct stat m ;
-
-				auto s = mm + '/' + name ;
-
-				if( stat( s.data(),&m ) == 0 ){
-
-					if( S_ISREG( m.st_mode ) ){
-
-						entries.addFile( m.st_ctime,name ) ;
-
-					}else if( S_ISDIR( m.st_mode ) ){
-
-						entries.addFolder( m.st_ctime,name ) ;
-					}
-				}
-			}
-
-			return true ;
-		}else{
-			return false ;
-		}
-	}
-	std::string m_path ;
-	Continue m_continue ;
-} ;
-
-#else
-
 #ifdef Q_OS_WIN
 
 #include <windows.h>
 
-template< typename Continue >
 class dManager
 {
 public:
-	dManager( const QString& path,Continue c ) :
-		m_path( this->setPath( path ) ),m_continue( std::move( c ) )
+	dManager( const QString& path,std::atomic_bool& c ) :
+		m_path( this->setPath( path ) ),m_continue( c )
 	{
-	}
-	static bool supportsCancel()
-	{
-		return true ;
+		m_continue = true ;
 	}
 	void removeDirectoryContents()
 	{
-		this->removeDirectory( m_path,[](){} ) ;
+		this->removeDirectory( m_path,false ) ;
 	}
 	void removeDirectory()
 	{
-		this->removeDirectory( m_path,[ & ](){ RemoveDirectoryW( m_path.data() ) ; } ) ;
+		this->removeDirectory( m_path,true ) ;
 	}
 	directoryEntries readAll()
 	{
-		auto _read = [ this ]( directoryEntries& entries,handle& h ){
-
-			if( h.findNext() ){
-
-				this->add( entries,h.data() ) ;
-
-				return true ;
-			}else{
-				return false ;
-			}
-		} ;
-
 		handle h( m_path ) ;
 
 		if( h.valid() ){
@@ -199,7 +56,7 @@ public:
 
 			this->add( entries,h.data() ) ;
 
-			while( m_continue && _read( entries,h ) ){}
+			while( m_continue && this->read( entries,h ) ){}
 
 			return entries ;
 		}else{
@@ -259,14 +116,13 @@ private:
 
 			if( data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ){
 
-				this->removeDirectory( m,[ &m ](){ RemoveDirectoryW( m.data() ) ; } ) ;
+				this->removeDirectory( m,true ) ;
 			}else{
 				DeleteFileW( m.data() ) ;
 			}
 		}
 	}
-	template< typename Function >
-	void removeDirectory( const std::wstring& w,Function function )
+	void removeDirectory( const std::wstring& w,bool removeDirectory )
 	{
 		handle h( w ) ;
 
@@ -288,7 +144,10 @@ private:
 				}
 			}
 
-			function() ;
+			if( removeDirectory ){
+
+				RemoveDirectoryW( w.data() ) ;
+			}
 		}
 	}
 	void add( directoryEntries& entries,const WIN32_FIND_DATAW& data )
@@ -310,84 +169,130 @@ private:
 			}
 		}
 	}
+	bool read( directoryEntries& entries,handle& h )
+	{
+		if( h.findNext() ){
+
+			this->add( entries,h.data() ) ;
+
+			return true ;
+		}else{
+			return false ;
+		}
+	}
 	std::wstring m_path ;
-	Continue m_continue ;
+	std::atomic_bool& m_continue ;
 } ;
 
 #else
 
-#include <QDateTime>
-#include <QString>
-#include <QFileInfo>
-#include <QDir>
+#include <dirent.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <cstring>
+#include <string>
 
-template< typename Continue >
 class dManager
 {
 public:
-	dManager( const QString& path,Continue ) :
-		m_path( path ),
-		m_list( QDir( m_path ).entryList( this->filters() ) )
+	dManager( const QString& path,std::atomic_bool& c ) :
+		m_path( path.toUtf8().constData() ),
+		m_continue( c )
 	{
-	}
-	void removeDirectory()
-	{
-		QDir( m_path ).removeRecursively() ;
-	}
-	void removeDirectoryContents()
-	{
-		QFileInfo m ;
-
-		QString s ;
-
-		for( const auto& it : QDir( m_path ).entryList( this->filters() ) ){
-
-			s = m_path + "/" + it ;
-
-			m.setFile( s ) ;
-
-			if( m.isFile() ){
-
-				QFile::remove( s ) ;
-			}else{
-				QDir( s ).removeRecursively() ;
-			}
-		}
-	}
-	static bool supportsCancel()
-	{
-		return false ;
+		m_continue = true ;
 	}
 	directoryEntries readAll()
 	{
-		while( this->read() ){}
+		auto handle = utils::misc::unique_rsc( opendir,closedir,m_path.data() ) ;
 
-		return std::move( m_entries ) ;
+		if( handle ){
+
+			directoryEntries entries ;
+
+			while( m_continue && this->read( entries,m_path,handle.get() ) ){}
+
+			return entries ;
+		}else{
+			return {} ;
+		}
+	}
+	void removeDirectoryContents()
+	{
+		this->removeDirectory( m_path,false ) ;
+	}
+	void removeDirectory()
+	{
+		this->removeDirectory( m_path,true ) ;
 	}
 private:
-	QDir::Filters filters()
+	void removeDirectory( const std::string& pm,bool removeFolder )
 	{
-		return QDir::Filter::Files | QDir::Filter::Dirs | QDir::Filter::NoDotAndDotDot ;
+		auto handle = utils::misc::unique_rsc( opendir,closedir,pm.data() ) ;
+
+		if( handle ){
+
+			while( m_continue ){
+
+				auto e = readdir( handle.get() ) ;
+
+				if( e ){
+
+					this->removePath( pm,e->d_name ) ;
+				}else{
+					break ;
+				}
+			}
+
+			if( removeFolder ){
+
+				rmdir( pm.data() ) ;
+			}
+		}
 	}
-	bool read()
+	void removePath( const std::string& pm,const char * name )
 	{
-		if( m_counter < m_list.size() ){
+		if( std::strcmp( name,"." ) != 0 && std::strcmp( name,".." ) != 0 ){
 
-			const auto& m = m_list[ m_counter++ ] ;
+			struct stat m ;
 
-			if( m_entries.valid( m ) ){
+			auto pp = pm + "/" + name ;
 
-				auto w = QDir::fromNativeSeparators( m ) ;
+			if( lstat( pp.data(),&m ) == 0 ){
 
-				m_fileInfo.setFile( m_path + "/" + m ) ;
+				if( S_ISDIR( m.st_mode ) ){
 
-				if( m_fileInfo.isFile() ){
+					this->removeDirectory( pp,true ) ;
+				}else{
+					unlink( pp.data() ) ;
+				}
+			}
+		}
+	}
+	bool read( directoryEntries& entries,const std::string& mm,DIR * dir )
+	{
+		auto e = readdir( dir ) ;
 
-					m_entries.addFile( this->createdTime( m_fileInfo ),w ) ;
+		if( e ){
 
-				}else if( m_fileInfo.isDir() ){
+			const auto name = e->d_name ;
 
-					m_entries.addFolder( this->createdTime( m_fileInfo ),w ) ;
+			if( entries.valid( name ) ){
+
+				struct stat m ;
+
+				auto s = mm + '/' + name ;
+
+				if( stat( s.data(),&m ) == 0 ){
+
+					if( S_ISREG( m.st_mode ) ){
+
+						entries.addFile( m.st_ctime,name ) ;
+
+					}else if( S_ISDIR( m.st_mode ) ){
+
+						entries.addFolder( m.st_ctime,name ) ;
+					}
 				}
 			}
 
@@ -396,28 +301,15 @@ private:
 			return false ;
 		}
 	}
-	qint64 createdTime( QFileInfo& e )
-	{
-	#if QT_VERSION >= QT_VERSION_CHECK( 5,10,0 )
-		return e.birthTime().toMSecsSinceEpoch() ;
-	#else
-		return e.created().toMSecsSinceEpoch() ;
-	#endif
-	}
-	qint64 m_counter = 0 ;
-	QString m_path ;
-	QStringList m_list ;
-	QFileInfo m_fileInfo ;
-	directoryEntries m_entries ;
+	std::string m_path ;
+	std::atomic_bool& m_continue ;
 } ;
-
-#endif
 
 #endif
 
 bool directoryEntries::valid( const char * e )
 {
-	if( std::strcmp( e,".." ) == 0 ){
+	if( std::strcmp( e,".." ) == 0 || std::strcmp( e,"." ) == 0 ){
 
 		return false ;
 	}
@@ -427,17 +319,12 @@ bool directoryEntries::valid( const char * e )
 		return false ;
 	}
 
-	if( *e == '.' ){
-
-		return false ;
-	}
-
 	return true ;
 }
 
 bool directoryEntries::valid( const wchar_t * s )
 {
-	if( std::wcscmp( s,L".." ) == 0 ){
+	if( std::wcscmp( s,L".." ) == 0 || std::wcscmp( s,L"." ) == 0 ){
 
 		return false ;
 	}
@@ -447,85 +334,27 @@ bool directoryEntries::valid( const wchar_t * s )
 		return false ;
 	}
 
-	if( *s == L'.' ){
-
-		return false ;
-	}
-
 	return true ;
-}
-
-bool directoryEntries::valid( const QString& m )
-{
-	if( m == ".." || m.startsWith( "." ) || m.startsWith( "info_" ) ){
-
-		return false ;
-	}else{
-		return true ;
-	}
-}
-
-class alwaysContinue
-{
-public:
-	operator bool()
-	{
-		return true ;
-	}
-} ;
-
-class conditionallyContinue
-{
-public:
-	conditionallyContinue( std::atomic_bool& s ) : m_continue( s )
-	{
-		m_continue = true ;
-	}
-	operator bool()
-	{
-		return m_continue ;
-	}
-private:
-	 std::atomic_bool& m_continue ;
-} ;
-
-bool directoryManager::supportsCancel()
-{
-	return dManager< alwaysContinue >::supportsCancel() ;
-}
-
-template< typename T >
-static dManager< T > _make_manager( const QString& e,T&& t )
-{
-	return dManager< T >( e,std::move( t ) ) ;
 }
 
 directoryEntries directoryManager::readAll( const QString& e )
 {
-	return _make_manager( e,alwaysContinue() ).readAll() ;
-}
+	std::atomic_bool s ;
 
-void directoryManager::removeDirectoryContents( const QString& e )
-{
-	return _make_manager( e,alwaysContinue() ).removeDirectoryContents() ;
-}
-
-void directoryManager::removeDirectory( const QString& e )
-{
-	return _make_manager( e,alwaysContinue() ).removeDirectory() ;
+	return directoryManager::readAll( e,s ) ;
 }
 
 directoryEntries directoryManager::readAll( const QString& e,std::atomic_bool& s )
 {
-	return _make_manager( e,conditionallyContinue( s ) ).readAll() ;
+	return dManager( e,s ).readAll() ;
 }
 
 void directoryManager::removeDirectoryContents( const QString& e,std::atomic_bool& s )
 {
-	return _make_manager( e,conditionallyContinue( s ) ).removeDirectoryContents() ;
+	return dManager( e,s ).removeDirectoryContents() ;
 }
 
 void directoryManager::removeDirectory( const QString& e,std::atomic_bool& s )
 {
-	return _make_manager( e,conditionallyContinue( s ) ).removeDirectory() ;
+	return dManager( e,s ).removeDirectory() ;
 }

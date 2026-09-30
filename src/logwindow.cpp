@@ -23,24 +23,48 @@
 #include "settings.h"
 #include "utility.h"
 #include "logger.h"
+#include "context.hpp"
 
 logWindow::logWindow( QWidget * parent,settings& s,Logger& logger ) :
 	QWidget( parent ),
 	m_ui( new Ui::logWindow ),
-	m_settings( s )
+	m_settings( s ),
+	m_logger( logger )
 {
 	m_ui->setupUi( this ) ;
 
+	this->window()->setWindowIcon( m_settings.getIcon( "media-downloader" ) ) ;
+
 	m_ui->plainTextEdit->setReadOnly( true ) ;
+
+	m_ui->plainTextEdit->installEventFilter( this ) ;
 
 	connect( m_ui->pbClose,&QPushButton::clicked,[ this ](){		
 
 		this->Hide() ;
 	} ) ;
 
-	connect( m_ui->pbClear,&QPushButton::clicked,[ &logger ](){
+	connect( m_ui->pbShowAll,&QPushButton::clicked,[ this ](){
 
-		logger.clear() ;
+		if( m_showDownloadHistory ){
+
+			if( m_logger.clearDownloadHistory() ){
+
+				m_ui->plainTextEdit->clear() ;
+			}
+		}else{
+			m_logger.showAllLogs() ;
+		}
+	} ) ;
+
+	utility::connectQCheckBox( m_ui->cbEnableDownloadHistory,[ this ]( bool s ){
+
+		auto ctx = m_logger.ctx() ;
+
+		if( ctx ){
+
+			ctx->Settings().setSaveDownloadHistory( s ) ;
+		}
 	} ) ;
 }
 
@@ -57,7 +81,7 @@ void logWindow::setText( const QByteArray& e )
 
 void logWindow::update( const QByteArray& e )
 {
-	if( this->isVisible() ){
+	if( !m_showDownloadHistory ){
 
 		this->setText( e ) ;
 	}
@@ -78,8 +102,21 @@ void logWindow::Hide()
 	this->clear() ;
 }
 
-void logWindow::Show()
+void logWindow::Show( bool s )
 {
+	m_showDownloadHistory = s ;
+
+	if( m_showDownloadHistory ){
+
+		m_ui->pbShowAll->setText( tr( "Clear" ) ) ;
+
+		m_ui->cbEnableDownloadHistory->setChecked( m_logger.ctx()->Settings().saveDownloadHistory() ) ;
+	}else{
+		m_ui->pbShowAll->setText( tr( "Show All" ) ) ;
+
+		m_ui->cbEnableDownloadHistory->setVisible( false ) ;
+	}
+
 	auto w = m_settings.windowsDimensions( "LogWindow" ) ;
 
 	if( !w.isEmpty() ){
@@ -110,6 +147,33 @@ void logWindow::clear()
 void logWindow::retranslateUi()
 {
 	m_ui->retranslateUi( this ) ;
+}
+
+bool logWindow::eventFilter( QObject * obj,QEvent * event )
+{
+	class meaw
+	{
+	public:
+		meaw( Logger& parent ) : m_logger( parent )
+		{
+		}
+		bool hasHistory()
+		{
+			return false ;
+		}
+		auto clear()
+		{
+			return m_logger.clearFunction() ;
+		}
+		auto showDownloadHistory()
+		{
+			return [](){} ;
+		}
+	private:
+		Logger& m_logger ;
+	} ;
+
+	return utility::showContextMenuLogWidget( obj,event,m_ui->plainTextEdit,meaw( m_logger ) ) ;
 }
 
 void logWindow::closeEvent( QCloseEvent * e )

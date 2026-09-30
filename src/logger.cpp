@@ -25,13 +25,18 @@
 
 #include "engines/yt-dlp.h"
 
+#include "context.hpp"
+
 Logger::Logger( QPlainTextEdit& e,QWidget *,settings& s ) :
 	m_logWindow( nullptr,s,*this ),
 	m_textEdit( e ),
-	m_processOutPuts( true ),
-	m_settings( s )
+	m_processOutPuts( true,s.getLogsLimits() ),
+	m_settings( s ),
+	m_qobj( *this )
 {
 	m_textEdit.setReadOnly( true ) ;
+
+	m_textEdit.installEventFilter( &m_qobj ) ;
 }
 
 void Logger::registerDone( int id )
@@ -56,7 +61,13 @@ void Logger::add( const QByteArray& s,int id )
 
 void Logger::clear()
 {
-	m_processOutPuts.clear() ;
+	if( m_id == -1 ){
+
+		m_processOutPuts.clear() ;
+	}else{
+		m_processOutPuts.clear( m_id ) ;
+	}
+
 	m_textEdit.clear() ;
 	m_logWindow.clear() ;
 }
@@ -64,13 +75,75 @@ void Logger::clear()
 void Logger::setMaxProcessLog( int s )
 {
 	m_processOutPuts.removeExtraLogs() ;
+
 	m_maxProcessLog = s ;
 }
 
-void Logger::showLogWindow()
+void Logger::showLogWindow( int id )
 {
-	m_logWindow.setText( m_processOutPuts.toLines() ) ;
+	m_id = id ;
+
+	if( m_id == -1 ){
+
+		m_logWindow.setText( m_processOutPuts.toLines() ) ;
+	}else{
+		m_logWindow.setText( m_processOutPuts.toLines( m_id ) ) ;
+	}
+
 	m_logWindow.Show() ;
+}
+
+void Logger::showDownloadHistoryWindow()
+{
+	class meaw
+	{
+	public:
+		meaw( Logger& p ) : m_parent( p )
+		{
+		}
+		void bg()
+		{
+			m_data = utility::archiveData::logHistoryData( *m_parent.m_ctx ) ;
+		}
+		void fg()
+		{
+			m_parent.m_logWindow.setText( m_data ) ;
+
+			m_parent.m_logWindow.Show( true ) ;
+		}
+	private:
+		QByteArray m_data ;
+		Logger& m_parent ;
+	} ;
+
+	if( m_ctx ){
+
+		utils::qthread::run( meaw( *this ) ) ;
+	}
+}
+
+void Logger::showAllLogs()
+{
+	m_id = -1 ;
+}
+
+bool Logger::clearDownloadHistory()
+{
+	if( m_ctx ){
+
+		const auto& e = m_ctx->Engines().engineDirPaths().downloadHistoryFilePath() ;
+
+		if( QFile::exists( e ) ){
+
+			QFile::remove( e ) ;
+
+			return true ;
+		}else{
+			return false ;
+		}
+	}else{
+		return false ;
+	}
 }
 
 void Logger::reTranslateLogWindow()
@@ -88,7 +161,7 @@ void Logger::update()
 {
 	auto s = m_settings.maxLoggerProcesses() ;
 
-	auto e = m_maxProcessLog > s ? m_maxProcessLog : s ;
+	auto e = std::max( m_maxProcessLog,s ) ;
 
 	while( true ){
 
@@ -105,15 +178,33 @@ void Logger::update()
 		}
 	}
 
-	auto m = m_processOutPuts.toLines() ;
-
 	if( m_updateView ){
+
+		auto m = m_processOutPuts.toLines() ;
 
 		m_textEdit.setPlainText( m ) ;
 		m_textEdit.moveCursor( QTextCursor::End ) ;
-	}
 
-	m_logWindow.update( m ) ;
+		if( m_logWindow.isVisible() ){
+
+			if( m_id == -1 ){
+
+				m_logWindow.update( m ) ;
+			}else{
+				m_logWindow.update( m_processOutPuts.toLines( m_id ) ) ;
+			}
+		}
+	}else{
+		if( m_logWindow.isVisible() ){
+
+			if( m_id == -1 ){
+
+				m_logWindow.update( m_processOutPuts.toLines() ) ;
+			}else{
+				m_logWindow.update( m_processOutPuts.toLines( m_id ) ) ;
+			}
+		}
+	}
 }
 
 bool Logger::Data::registerDone( int id )
@@ -129,6 +220,34 @@ bool Logger::Data::registerDone( int id )
 	}
 
 	return false ;
+}
+
+QByteArray Logger::Data::debugOutPut() const
+{
+	QByteArray m ;
+
+	for( const auto& it : m_processOutputs ){
+
+		auto s = "Process ID: " + QString::number( it.processId() ).toUtf8() ;
+
+		const auto& ee = it.entries() ;
+
+		if( ee.empty() ){
+
+			s += "\n<EMPTY>" ;
+		}else{
+			for( const auto& it : ee ){
+
+				s += "\n" + it.text() + "\n----------" ;
+			}
+		}
+
+		s += "\n*******************************\n" ;
+
+		m += s ;
+	}
+
+	return m ;
 }
 
 QByteArray Logger::Data::join( const QByteArray& joiner ) const
@@ -158,10 +277,53 @@ QByteArray Logger::Data::join( const QByteArray& joiner ) const
 	return m ;
 }
 
+QByteArray Logger::Data::join( const QByteArray& joiner,int id ) const
+{
+	QByteArray m ;
+
+	for( const auto& it : m_processOutputs ){
+
+		if( it.processId() == id ){
+
+			const auto& ee = it.entries() ;
+
+			if( !ee.empty() ){
+
+				if( m.isEmpty() ){
+
+					m = ee[ 0 ].text() ;
+				}else{
+					m += joiner + ee[ 0 ].text() ;
+				}
+
+				for( size_t i = 1 ; i < ee.size() ; i++ ){
+
+					m += joiner + ee[ i ].text() ;
+				}
+			}
+		}
+	}
+
+	return m ;
+}
+
+bool Logger::Data::processOutput::extraLogs::operator()( const Logger::Data::processOutput& e ) const
+{
+	const auto& s = e.entries() ;
+
+	if( s.size() ){
+
+		return !s[ 0 ].text().startsWith( "[media-downloader] cmd: " ) ;
+	}else{
+		return false ;
+	}
+}
+
 void Logger::Data::removeExtraLogs()
 {
 	auto& v = m_processOutputs ;
-	auto m = Logger::Data::processOutput::IdLessThanZero() ;
+	auto m = Logger::Data::processOutput::extraLogs() ;
+
 	v.erase( std::remove( v.begin(),v.end(),m ),v.end() ) ;
 }
 
@@ -178,6 +340,17 @@ bool Logger::Data::removeFirstFinished()
 	}
 
 	return false ;
+}
+
+void Logger::Data::manageLogSize( std::vector< processOutput::outputEntry >& ee )
+{
+	if( ee.size() > m_maxLogEntries ){
+
+		auto begin = ee.begin() + 1 ;
+		auto end   = begin + m_longEntriesToRemove ;
+
+		ee.erase( begin,end ) ;
+	}
 }
 
 bool Logger::Data::doneDownloadingText( const QByteArray& data )
@@ -222,4 +395,31 @@ QString Logger::locale::locale::formattedDataSize( qint64 s ) const
 
 	return {} ;
 #endif
+}
+
+bool Logger::meaw::eventFilter( QObject * obj,QEvent * event )
+{
+	class woof
+	{
+	public:
+		woof( Logger& parent ) : m_parent( parent )
+		{
+		}
+		bool hasHistory()
+		{
+			return true ;
+		}
+		auto clear()
+		{
+			return m_parent.clearFunction() ;
+		}
+		auto showDownloadHistory()
+		{
+			return [ this ](){ m_parent.showDownloadHistoryWindow() ; } ;
+		}
+	private:
+		Logger& m_parent ;
+	} ;
+
+	return utility::showContextMenuLogWidget( obj,event,&m_parent.m_textEdit,woof( m_parent ) ) ;
 }

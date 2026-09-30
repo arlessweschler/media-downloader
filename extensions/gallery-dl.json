@@ -1,7 +1,8 @@
 {
+    "AutoUpdate": true,
     "BackendPath": "${default}",
     "BatchFileArgument": "",
-    "CanDownloadPlaylist": false,
+    "CanDownloadPlaylist": true,
     "Cmd": {
         "Generic": {
             "amd64": {
@@ -17,6 +18,20 @@
                 "Name": "gallery-dl.bin"
             }
         },
+        "MacOS": {
+            "amd64": {
+                "Args": [
+                    "gallery-dl_macos"
+                ],
+                "Name": "gallery-dl_macos"
+            },
+            "x86": {
+                "Args": [
+                    "gallery-dl_macos"
+                ],
+                "Name": "gallery-dl_macos"
+            }
+        },
         "Windows": {
             "amd64": {
                 "Args": [
@@ -26,38 +41,53 @@
             },
             "x86": {
                 "Args": [
-                    "gallery-dl.exe"
+                    "gallery-dl_x86.exe"
                 ],
-                "Name": "gallery-dl.exe"
+                "Name": "gallery-dl_x86.exe"
             }
         }
     },
     "ControlJsonStructure": {
-        "Connector": "",
+        "Connector": "||",
         "lhs": {
             "startsWith": "[gallery-dl]"
         },
         "rhs": {
-            "contains": ""
+            "contains": "% "
         }
     },
+    "CookieArgument": "--cookies-from-browser",
+    "CookieArgumentTextFile": "--cookies",
     "DefaultDownLoadCmdOptions": [
     ],
     "DefaultListCmdOptions": [
     ],
-    "DownloadUrl": "https://api.github.com/repos/mikf/gallery-dl/releases/latest",
+    "DownloadUrl": "https://codeberg.org/api/v1/repos/mikf/gallery-dl/releases",
+    "DownloadUrlMAC": "https://api.github.com/repos/gdl-org/builds/releases/latest",
+    "DumptJsonArguments": [
+        "--no-skip",
+        "--no-download",
+        "--quiet",
+        "--postprocessor",
+        "metadata",
+        "--postprocessor-option",
+        "event=prepare",
+        "--postprocessor-option",
+        "filename=-"
+    ],
     "LikeYoutubeDl": false,
     "Name": "gallery-dl",
     "OptionsArgument": "",
     "RemoveText": [
     ],
-    "ReplaceOutputWithProgressReport": true,
+    "ReplaceOutputWithProgressReport": false,
     "RequiredMinimumVersionOfMediaDownloader": "2.2.0",
     "SkipLineWithText": [
     ],
     "SplitLinesBy": [
         "\n"
     ],
+    "Version": "3",
     "VersionArgument": "--version",
     "VersionStringLine": 0,
     "VersionStringPosition": 0

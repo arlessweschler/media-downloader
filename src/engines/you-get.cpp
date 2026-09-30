@@ -25,64 +25,64 @@
 #include <cstring>
 
 you_get::you_get( const engines& engines,const engines::engine& engine,QJsonObject& ) :
-	engines::engine::functions( engines.Settings(),engine,engines.processEnvironment() )
+	engines::engine::baseEngine( engines.Settings(),engine,engines.processEnvironment() )
 {
 }
 
 QString you_get::updateCmdPath( const QString& e )
 {
-	const auto& name = engines::engine::functions::engine().name() ;
+	const auto& name = engines::engine::baseEngine::engine().name() ;
 
 	return e + "/" + name + "/" + name ;
 }
 
 bool you_get::foundNetworkUrl( const QString& url )
 {
-	return url.startsWith( "you-get" ) && url.endsWith( ".tar.gz" ) ;
+	if( url.startsWith( "you_get" ) || url.startsWith( "you-get" ) ){
+
+		return url.endsWith( this->archiveExtension() ) ;
+	}else{
+		return false ;
+	}
 }
 
-void you_get::setProxySetting( QStringList& e,const QString& s )
+void you_get::setProxySetting( engines::engine::baseEngine::optionsEnvironment&,QStringList& e,const QString& s )
 {
 	e.append( "--http-proxy" ) ;
 	e.append( s ) ;
 }
 
-void you_get::renameArchiveFolder( const QString& e )
+engines::engine::baseEngine::renameArchiveFolderStatus
+you_get::renameArchiveFolder( const QString& archivePath,const QString& binPath )
 {
-	const auto m = QDir( e ).entryList( QDir::Filter::Dirs | QDir::Filter::NoDotAndDotDot ) ;
+	auto m = this->archiveExtension() ;
 
-	const auto& name = engines::engine::functions::engine().name() ;
+	const auto& name = engines::engine::baseEngine::engine().name() ;
 
-	QDir dir ;
+	auto oldPath = binPath + "/" + QFileInfo( archivePath ).fileName().replace( m,"" ) ;
+	auto newPath = binPath + "/" + name ;
 
-	for( const auto& it : m ){
+	auto s = utility::rename( oldPath,newPath ) ;
 
-		QFileInfo s( e + "/" + it ) ;
+	if( s.isEmpty() ){
 
-		if( s.isDir() && it.startsWith( name ) ){
-
-			if( it != name ){
-
-				dir.rename( e + "/" + it,e + "/" + name ) ;
-				break ;
-			}
-		}
+		return {} ;
+	}else{
+		return { oldPath,newPath,s } ;
 	}
 }
 
-std::vector<engines::engine::functions::mediaInfo> you_get::mediaProperties( Logger& l,const QByteArray& e )
+std::vector<engines::engine::baseEngine::mediaInfo> you_get::mediaProperties( Logger& l,const QByteArray& e )
 {
-	QJsonParseError err ;
+	auto json = utility::jsonDoc( e ) ;
 
-	auto json = QJsonDocument::fromJson( e,&err ) ;
+	std::vector<engines::engine::baseEngine::mediaInfo> s ;
 
-	std::vector<engines::engine::functions::mediaInfo> s ;
+	if( json.notValid() ){
 
-	if( err.error != QJsonParseError::NoError ){
-
-		utility::failedToParseJsonData( l,err ) ;
+		utility::failedToParseJsonData( l,json.error() ) ;
 	}else{
-		const auto obj = json.object().value( "streams" ).toObject() ;
+		const auto obj = json.toObject().value( "streams" ).toObject() ;
 
 		Logger::locale locale ;
 
@@ -98,11 +98,11 @@ std::vector<engines::engine::functions::mediaInfo> you_get::mediaProperties( Log
 
 				const auto arr = oo.value( "src" ).toArray() ;
 
-				for( const auto& it : arr ){
+				for( const auto it : arr ){
 
 					const auto xrr = it.toArray() ;
 
-					for( const auto& xt : xrr ){
+					for( const auto xt : xrr ){
 
 						l.append( xt.toString() ) ;
 					}
@@ -114,27 +114,31 @@ std::vector<engines::engine::functions::mediaInfo> you_get::mediaProperties( Log
 			auto a  = oo.value( "itag" ).toString() ;
 			auto b  = oo.value( "container" ).toString() ;
 			auto c  = oo.value( "quality" ).toString().replace( " ","\n" ) ;
+			auto d  = oo.value( "size" ).toInt() ;
+			auto e  = locale.formattedDataSize( d ) ;
+			auto f  = QString::number( d ) ;
+			auto g = "type: " + oo.value( "type" ).toString() ;
 
-			auto mm = "size: " + locale.formattedDataSize( oo.value( "size" ).toInt() ) ;
-			mm += "\ntype: " + oo.value( "type" ).toString() ;
-
-			auto d = mm ;
-
-			s.emplace_back( l,a,b,c,d ) ;
+			s.emplace_back( l,a,b,c,e,f,g,"","" ) ;
 		}
 	}
 
 	return s ;
 }
 
+bool you_get::installed( const engines::enginePaths& enginePaths )
+{
+	return QFile::exists( enginePaths.binPath() + "/you-get" ) ;
+}
+
 you_get::~you_get()
 {
 }
 
-engines::engine::functions::DataFilter you_get::Filter( int id )
+engines::engine::baseEngine::DataFilter you_get::Filter( int id )
 {
-	auto& s = engines::engine::functions::Settings() ;
-	const auto& engine = engines::engine::functions::engine() ;
+	auto& s = engines::engine::baseEngine::Settings() ;
+	const auto& engine = engines::engine::baseEngine::engine() ;
 
 	return { util::types::type_identity< you_get::you_getFilter >(),s,engine,id } ;
 }
@@ -142,42 +146,44 @@ engines::engine::functions::DataFilter you_get::Filter( int id )
 QString you_get::updateTextOnCompleteDownlod( const QString& uiText,
 					      const QString& bkText,
 					      const QString& dopts,
-					      const engines::engine::functions::finishedState& f )
+					      const QString& tabName,
+					      const engines::engine::baseEngine::finishedState& f )
 {
 	if( f.success() ){
 
-		return engines::engine::functions::updateTextOnCompleteDownlod( uiText,dopts,f ) ;
+		return engines::engine::baseEngine::updateTextOnCompleteDownlod( uiText,dopts,tabName,f ) ;
 
 	}else if( f.cancelled() ){
 
-		return engines::engine::functions::updateTextOnCompleteDownlod( bkText,dopts,f ) ;
+		return engines::engine::baseEngine::updateTextOnCompleteDownlod( bkText,dopts,tabName,f ) ;
 
 	}else if( uiText.startsWith( "you-get: [Error]" ) ){
 
-		using functions = engines::engine::functions ;
+		using functions = engines::engine::baseEngine ;
 
 		if( uiText.contains( "Invalid video format" ) ){
 
 			return functions::errorString( f,functions::errors::unknownFormat,bkText ) ;
 		}else{
-			auto m = engines::engine::functions::updateTextOnCompleteDownlod( uiText.mid( 16 ),dopts,f ) ;
+			auto s = uiText.mid( 16 ) ;
+			auto m = engines::engine::baseEngine::updateTextOnCompleteDownlod( s,dopts,tabName,f ) ;
 
 			return m + "\n" + bkText ;
 		}
 	}else{
-		auto m = engines::engine::functions::processCompleteStateText( f ) ;
+		auto m = engines::engine::baseEngine::processCompleteStateText( f ) ;
 		return m + "\n" + bkText ;
 	}
 }
 
 you_get::you_getFilter::you_getFilter( settings&,const engines::engine& engine,int id ) :
-	engines::engine::functions::filter( engine,id ),
+	engines::engine::baseEngine::filter( engine,id ),
 	m_processId( id )
 {
 	Q_UNUSED( m_processId )
 }
 
-const QByteArray& you_get::you_getFilter::operator()( const Logger::Data& s )
+const QByteArray& you_get::you_getFilter::operator()( Logger::Data& s )
 {
 	if( s.doneDownloading() ){
 
@@ -200,6 +206,8 @@ const QByteArray& you_get::you_getFilter::operator()( const Logger::Data& s )
 				}
 			} ) ;
 		}
+
+		s.addFileName( m_title ) ;
 
 		return m_title ;
 

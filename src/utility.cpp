@@ -21,10 +21,11 @@
 
 #include "settings.h"
 #include "context.hpp"
-#include "downloadmanager.hpp"
+#include "reportFinished.h"
 #include "tableWidget.h"
 #include "tabmanager.h"
 #include "version.h"
+#include "windows.h"
 
 #include <QEventLoop>
 #include <QDesktopServices>
@@ -32,284 +33,555 @@
 #include <QMimeData>
 #include <QFileDialog>
 #include <QSysInfo>
+#include <QFile>
+#include <QDir>
+#include <QJsonDocument>
+#include <QOperatingSystemVersion>
 
 #include <ctime>
 #include <cstring>
 
-const char * utility::selectedAction::CLEAROPTIONS = "Clear Options" ;
-const char * utility::selectedAction::CLEARSCREEN  = "Clear Screen" ;
-const char * utility::selectedAction::OPENFOLDER   = "Open Download Folder" ;
-
-#if defined(__OS2__) || defined(OS2) || defined(_OS2)
-
-bool utility::platformisOS2()
+namespace utility
 {
-	return true ;
+namespace local
+{
+
+static bool useFakeHash ;
+static bool cliArguments_debug ;
+
+static const PretendPlatform * PretendPlatform ;
+static const SysPlatForm * SysPlatform ;
+
+const utility::SysPlatForm& Platform()
+{
+	return *utility::local::SysPlatform ;
 }
 
-bool utility::platformIsLinux()
+const utility::PretendPlatform& pretendPlatform()
 {
-	return false ;
+	return *utility::local::PretendPlatform ;
 }
 
-bool utility::platformIsOSX()
+static QString downloadPath()
 {
-	return false ;
-}
+#if QT_VERSION >= QT_VERSION_CHECK( 5,6,0 )
 
-bool utility::platformIsWindows()
-{
-	return false ;
-}
+	auto s = QStandardPaths::standardLocations( QStandardPaths::DownloadLocation ) ;
 
+	if( s.isEmpty() ){
+
+		return QDir::homePath() + "/Downloads" ;
+	}else{
+		return s.first() ;
+	}
+#else
+	return QDir::homePath() + "/Downloads" ;
 #endif
-
-#ifdef Q_OS_LINUX
-
-bool utility::platformisOS2()
-{
-	return false ;
 }
 
-bool utility::platformIsLinux()
+class runTimeVersionInfo
 {
-	return true ;
+public:
+	void setInstanceVersion( const QString& e )
+	{
+		m_instanceVersion = e ;
+	}
+	void setAboutInstanceVersion( const QString& e )
+	{
+		m_aboutInstanceVersion = e ;
+	}
+	const QString& instanceVersion() const
+	{
+		return m_instanceVersion ;
+	}
+	const QString& aboutInstanceVersion() const
+	{
+		return m_aboutInstanceVersion ;
+	}
+private:
+	QString m_instanceVersion ;
+	QString m_aboutInstanceVersion ;
+} ;
+
+static runTimeVersionInfo& runTimeVersions()
+{
+	static runTimeVersionInfo m ;
+
+	return m ;
 }
 
-bool utility::platformIsOSX()
+static QJsonArray saveDownloadList( tableWidget& tableWidget,bool noFinishedSuccess )
 {
-	return false ;
+	QJsonArray arr ;
+
+	auto _add = [ & ]( const tableWidget::entry& e ){
+
+		if( e.url.isEmpty() ){
+
+			return ;
+		}
+
+		auto obj = e.uiJson ;
+
+		auto title = obj.value( "title" ).toString() ;
+
+		if( !title.isEmpty() ){
+
+			auto url = obj.value( "url" ).toString() ;
+
+			if( title == url ){
+
+				obj.remove( "title" ) ;
+			}
+		}
+
+		if( !e.downloadingOptions.isEmpty() ){
+
+			obj.insert( "downloadOptions",e.downloadingOptions ) ;
+		}
+
+		if( !e.engineName.isEmpty() ){
+
+			obj.insert( "engineName",e.engineName ) ;
+		}
+
+		if( !e.extraDownloadingOptions.isEmpty() ){
+
+			obj.insert( "downloadExtraOptions",e.extraDownloadingOptions ) ;
+		}
+
+		arr.append( obj ) ;
+	} ;
+
+	if( noFinishedSuccess ){
+
+		tableWidget.forEach( [ & ]( const tableWidget::entry& e ){
+
+			using gg = reportFinished::finishedStatus ;
+
+			if( !gg::finishedWithSuccess( e.runningState ) ){
+
+				_add( e ) ;
+			}
+		} ) ;
+	}else{
+		tableWidget.forEach( [ & ]( const tableWidget::entry& e ){
+
+			_add( e ) ;
+		} ) ;
+	}
+
+	return arr ;
 }
 
-bool utility::platformIsWindows()
+static util::version get_process_version( const QString& path,
+					  const QString& cmd,
+					  const QProcessEnvironment& env )
 {
-	return false ;
-}
+	auto e = path + "/version_info.txt" ;
 
-#endif
+	QFile file( e ) ;
 
-#ifdef Q_OS_MACOS
+	if( file.exists() ){
 
-bool utility::platformisOS2()
-{
-	return false ;
-}
+		if( file.open( QIODevice::ReadOnly ) ){
 
-bool utility::platformIsOSX()
-{
-	return true ;
-}
+			util::version m = file.readAll().trimmed() ;
 
-bool utility::platformIsLinux()
-{
-	return false ;
-}
+			if( m.valid() ){
 
-bool utility::platformIsWindows()
-{
-	return false ;
-}
+				return m ;
+			}
 
-#endif
+			file.close() ;
+		}
 
-#ifdef Q_OS_WIN
+		file.remove() ;
+	}
 
-#include <windows.h>
-#include <iphlpapi.h>
-#include <libloaderapi.h>
-#include <winuser.h>
-#include <winbase.h>
-#include <dwmapi.h>
+	QProcess exe ;
 
-#include <array>
-#include <cstring>
+	exe.setProgram( cmd ) ;
+	exe.setArguments( { "--version" } ) ;
+	exe.setProcessEnvironment( env ) ;
 
-#include <QOperatingSystemVersion>
+	exe.start() ;
 
-bool utility::platformIsWindows()
-{
-	return true ;
-}
+	exe.waitForFinished() ;
 
-bool utility::platformIsLinux()
-{
-	return false ;
-}
+	util::version m = exe.readAllStandardOutput().trimmed() ;
 
-bool utility::platformIsOSX()
-{
-	return false ;
-}
+	if( m.valid() ){
 
-bool utility::platformisOS2()
-{
-	return false ;
-}
+		QFile file( e ) ;
 
-QString utility::windowsApplicationDirPath()
-{
-	std::array< char,4096 > buffer ;
+		if( file.open( QIODevice::WriteOnly | QIODevice::Truncate ) ){
 
-	GetModuleFileNameA( nullptr,buffer.data(),static_cast< DWORD >( buffer.size() ) ) ;
-
-	auto m = QDir::fromNativeSeparators( buffer.data() ) ;
-	auto s = m.lastIndexOf( '/' ) ;
-
-	if( s != -1 ){
-
-		m.truncate( s ) ;
+			file.write( m.toString().toUtf8() ) ;
+		}
 	}
 
 	return m ;
 }
 
-class adaptorInfo
+static bool start_updated( QProcess& exe )
 {
-public:
-	adaptorInfo()
-	{
-		auto m = this->requiredSize() ;
-
-		if( m ){
-
-			auto e = HeapAlloc( GetProcessHeap(),0,m ) ;
-
-			auto s = static_cast< PIP_ADAPTER_INFO >( e ) ;
-
-			if( GetAdaptersInfo( s,&m ) == NO_ERROR ){
-
-				m_handle = s ;
-			}else{
-				this->free( s ) ;
-			}
-		}
-	}
-	QString address()
-	{
-		if( m_handle ){
-
-			for( auto it = m_handle ; it != nullptr ; it = it->Next ){
-
-				auto gateway = it->GatewayList.IpAddress.String ;
-				auto address = it->IpAddressList.IpAddress.String ;
-
-				if( std::strcmp( address,"0.0.0.0" ) ){
-
-					if( std::strcmp( gateway,"0.0.0.0" ) ){
-
-						return gateway ;
-					}
-				}
-			}
-		}
-
-		return {} ;
-	}
-	~adaptorInfo()
-	{
-		this->free( m_handle ) ;
-	}
-private:
-	void free( PIP_ADAPTER_INFO s )
-	{
-		HeapFree( GetProcessHeap(),0,s ) ;
-	}
-	ULONG requiredSize()
-	{
-		ULONG m = 0 ;
-
-		if( GetAdaptersInfo( nullptr,&m ) == ERROR_BUFFER_OVERFLOW ){
-
-			return m ;
-		}else{
-			return 0 ;
-		}
-	}
-
-	PIP_ADAPTER_INFO m_handle = nullptr ;
-} ;
-
-QString utility::windowsGateWayAddress()
-{
-	return adaptorInfo().address() ;
+#if QT_VERSION >= QT_VERSION_CHECK( 5,10,0 )
+	return exe.startDetached() ;
+#else
+	exe.start() ;
+	exe.waitForFinished( -1 ) ;
+	return true ;
+#endif
 }
 
-QString utility::windowsGetClipBoardText( const ContextWinId& wId )
+static QStringList listOptionsFromDownloadOptions( const QString& e )
 {
-	QString s ;
+	QStringList m ;
 
-	if( IsClipboardFormatAvailable( CF_TEXT ) ){
+	auto ee = util::splitPreserveQuotes( e ) ;
 
-		if( OpenClipboard( wId.value() ) ){
+	for( auto it = ee.begin() ; it != ee.end() ; it++ ){
 
-			auto hglb = GetClipboardData( CF_TEXT ) ;
+		const auto& s = *it ;
 
-			if( hglb ){
+		if( s == "\"--proxy\"" || s == "--proxy" ){
 
-				auto lptstr = static_cast< LPTSTR >( GlobalLock( hglb ) ) ;
+			auto xt = it + 1 ;
 
-				if( lptstr ){
+			if( xt != ee.end() ){
 
-					s = lptstr ;
-
-					GlobalUnlock( hglb ) ;
-				}
+				m.append( "--proxy" ) ;
+				m.append( *xt ) ;
 			}
 
-			CloseClipboard() ;
+			break ;
 		}
 	}
 
-	return s ;
+	return m ;
+}
+
+}
+
+}
+
+QStringList utility::dirEntries( const QString& e )
+{
+	auto filters = QDir::Filter::Dirs | QDir::Filter::NoDotAndDotDot ;
+
+	return QDir( e ).entryList( filters ) ;
+}
+
+void utility::setPlatForms( const utility::PretendPlatform& p )
+{
+	utility::local::PretendPlatform = &p ;
+}
+
+void utility::setPlatForms( const utility::SysPlatForm& s )
+{
+	utility::local::SysPlatform = &s ;
+}
+
+QString utility::SysPlatForm::errorMessage() const
+{
+#ifdef Q_OS_WIN
+	return windows::errorMessage() ;
+#else
+	return strerror( errno ) ;
+#endif
+}
+
+bool utility::SysPlatForm::Win7( const QOperatingSystemVersion& system )
+{
+	if( this->isWindows() ){
+
+		if( utility::local::pretendPlatform().isWindows7() ){
+
+			return true ;
+		}else{
+			return system < QOperatingSystemVersion::Windows8 ;
+		}
+	}else{
+		return false ;
+	}
+}
+
+bool utility::SysPlatForm::ModernWindows( const QOperatingSystemVersion& system )
+{
+#if QT_VERSION >= QT_VERSION_CHECK( 6,5,0 )
+
+	if( this->isWindows() ){
+
+		if( utility::local::pretendPlatform().isModernWindows() ){
+
+			return true ;
+
+		}else if( utility::CPU().x86_64() ){
+
+			return system >= QOperatingSystemVersion::Windows10_22H2 ;
+		}else{
+			return false ;
+		}
+	}else{
+		return false ;
+	}
+#else
+	Q_UNUSED( system )
+	return false ;
+#endif
+}
+
+bool utility::SysPlatForm::LegacyWindows( const QOperatingSystemVersion& system )
+{
+	if( this->isWindows() ){
+
+		const auto& m = utility::local::pretendPlatform() ;
+
+		if( m.isLegacyWindows() || m.isWindows7() ){
+
+			return true ;
+		}else{
+			#if QT_VERSION >= QT_VERSION_CHECK( 5,9,0 )
+
+				if( system < QOperatingSystemVersion::Windows10 ){
+
+					return true ;
+
+				}else if( system > QOperatingSystemVersion::Windows10 ){
+
+					return false ;
+				}else{
+					/*
+					 * Windows 10 (1903)       10.0.18362
+					 * Windows 10 (1809)       10.0.17763
+					 * Windows 10 (1803)       10.0.17134
+					 * Windows 10 (1709)       10.0.16299
+					 * Windows 10 (1703)       10.0.15063
+					 * Windows 10 (1607)       10.0.14393
+					 * Windows 10 (1511)       10.0.10586
+					 * Windows 10              10.0.10240
+					 */
+					return system.microVersion() < 16299 ;
+				}
+			#else
+				Q_UNUSED( system )
+				return false ;
+			#endif
+		}
+	}else{
+		return false ;
+	}
+}
+
+bool utility::platformisOS2()
+{
+	return utility::local::Platform().isOs2() ;
+}
+
+bool utility::platformIsLinux()
+{
+	return utility::local::Platform().isLinux() ;
+}
+
+bool utility::platformIsOSX()
+{
+	return utility::local::Platform().isMacOs() ;
+}
+
+bool utility::platformIsWindows()
+{
+	return utility::local::Platform().isWindows() ;
+}
+
+bool utility::platformIsWindows7()
+{
+	return utility::local::Platform().isWin7() ;
+}
+
+bool utility::platformIsModernWindows()
+{
+	return utility::local::Platform().isModernWindows() ;
+}
+
+bool utility::platformIsLegacyWindows()
+{
+	return utility::local::Platform().isLegacyWindows() ;
+}
+
+QString utility::errorMessage()
+{
+	return utility::local::Platform().errorMessage() ;
+}
+
+void utility::checkPermissions::enable()
+{
+	if( utility::platformIsWindows() ){
+
+		windows::enableCheckPermissions() ;
+	}
+}
+
+void utility::checkPermissions::disable()
+{
+	if( utility::platformIsWindows() ){
+
+		windows::disableCheckPermissions() ;
+	}
+}
+
+class fileRename
+{
+public:
+	fileRename( const QString& oldPath,const QString& newPath ) :
+		m_oldPath( oldPath ),m_newPath( newPath )
+	{
+	}
+	bool operator()() const
+	{
+		return QFile::rename( m_oldPath,m_newPath ) ;
+	}
+	QString errorString() const
+	{
+		return utility::errorMessage() ;
+	}
+	const QString& oldPath() const
+	{
+		return m_oldPath ;
+	}
+	const QString& newPath() const
+	{
+		return m_newPath ;
+	}
+private:
+	const QString& m_oldPath ;
+	const QString& m_newPath ;
+} ;
+
+class fileRemove
+{
+public:
+	fileRemove( const QString& s ) : m_src( s )
+	{
+	}
+	bool operator()() const
+	{
+		if( QFile::exists( m_src ) ){
+
+			return QFile::remove( m_src ) ;
+		}else{
+			return true ;
+		}
+	}
+	QString errorString() const
+	{
+		return utility::errorMessage() ;
+	}
+private:
+	const QString& m_src ;
+} ;
+
+class dirRemove
+{
+public:
+	dirRemove( const QString& s ) : m_src( s )
+	{
+	}
+	bool operator()() const
+	{
+		QDir dir( m_src ) ;
+
+		if( dir.exists() ){
+
+			return dir.removeRecursively() ;
+		}else{
+			return true ;
+		}
+	}
+	QString errorString() const
+	{
+		return utility::errorMessage() ;
+	}
+private:
+	const QString& m_src ;
+} ;
+
+std::vector< utility::PlayerOpts > utility::getMediaPlayers()
+{
+	if( utility::platformIsWindows() ){
+
+		return windows::getMediaPlayers() ;
+	}
+
+	std::vector< utility::PlayerOpts > m ;
+
+	if( utility::platformisFlatPak() ){
+
+		m.emplace_back( "",QObject::tr( "Default Player" ) ) ;
+		m.emplace_back( "vlc","VLC" ) ;
+	}else{
+		class appList
+		{
+		public:
+			struct app
+			{
+				app( const char * u,const char * e ) : uiName( u ),exeName( e )
+				{
+				}
+				const char * uiName ;
+				const char * exeName ;
+			} ;
+			appList()
+			{
+				m_appList.emplace_back( "VLC","vlc" ) ;
+				m_appList.emplace_back( "SMPlayer","smplayer" ) ;
+				m_appList.emplace_back( "MPV","mpv" ) ;
+			}
+			auto begin() const
+			{
+				return m_appList.begin() ;
+			}
+			auto end() const
+			{
+				return m_appList.end() ;
+			}
+		private:
+			std::vector< app > m_appList ;
+		} apps ;
+
+		for( const auto& it : apps ){
+
+			auto s = QStandardPaths::findExecutable( it.exeName ) ;
+
+			if( !s.isEmpty() ){
+
+				m.emplace_back( s,it.uiName ) ;
+			}
+		}
+	}
+
+	return m ;
 }
 
 void utility::windowsSetDarkModeTitleBar( const Context& ctx )
 {
-	auto os = QOperatingSystemVersion::OSType::Windows ;
-
-	auto minVersion = QOperatingSystemVersion( os,10,0,17763 ) ;
-
-	auto currentVersion = QOperatingSystemVersion::current() ;
-
-	if( currentVersion >= minVersion ){
-
-		auto m = ctx.nativeHandleToMainWindow().value() ;
-
-		BOOL dark = 1 ;
-
-		DWORD DWMWA_USE_IMMERSIVE_DARK_MODE = 20 ;
-
-		if( DwmSetWindowAttribute( m,DWMWA_USE_IMMERSIVE_DARK_MODE,&dark,sizeof( BOOL ) ) ){
-
-			DWMWA_USE_IMMERSIVE_DARK_MODE = 19 ;
-
-			DwmSetWindowAttribute( m,DWMWA_USE_IMMERSIVE_DARK_MODE,&dark,sizeof( BOOL ) ) ;
-		}
-	}
+	return windows::setDarkModeTitleBar( ctx ) ;
 }
 
-#else
-
-void utility::windowsSetDarkModeTitleBar( const Context& )
+QString utility::windowsGetClipBoardText( const ContextWinId& e )
 {
-}
-
-QString utility::windowsGetClipBoardText( const ContextWinId& )
-{
-	return {} ;
+	return windows::getClipBoardText( e ) ;
 }
 
 QString utility::windowsApplicationDirPath()
 {
-	return {} ;
+	return windows::applicationDirPath() ;
 }
 
 QString utility::windowsGateWayAddress()
 {
-	return {} ;
+	return windows::gateWayAddress() ;
 }
-
-#endif
 
 utility::debug& utility::debug::operator<<( const QString& e )
 {
@@ -359,34 +631,6 @@ utility::debug& utility::debug::operator<<( const QByteArray& e )
 	return _print( e.data() ) ;
 }
 
-static void _kill_children_recursively( const QString& id )
-{
-	auto path = QString( "/proc/%1/task/" ).arg( id ) ;
-
-	auto filter = QDir::Filter::Dirs | QDir::Filter::NoDotAndDotDot ;
-
-	const auto ff = QDir( path ).entryList( filter ) ;
-
-	for( const auto& it : ff ){
-
-		QFile file( path + it + "/children" ) ;
-
-		if( file.open( QIODevice::ReadOnly ) ){
-
-			const auto pids = util::split( file.readAll(),' ',true ) ;
-
-			for( const auto& it : pids ){
-
-				_kill_children_recursively( it ) ;
-
-				QProcess exe ;
-				exe.start( "kill",{ "-s","SIGTERM",it } ) ;
-				exe.waitForFinished( -1 ) ;
-			}
-		}
-	}
-}
-
 bool utility::Terminator::terminate( QProcess& exe )
 {
 	if( utility::platformIsWindows() ){
@@ -400,12 +644,52 @@ bool utility::Terminator::terminate( QProcess& exe )
 
 	}else if( utility::platformIsLinux() ){
 
-		utils::qthread::run( [ &exe ](){
+		class meaw
+		{
+		public:
+			meaw( QProcess& exe ) : m_exe( exe )
+			{
+			}
+			void bg()
+			{
+				this->terminate( QString::number( m_exe.processId() ) ) ;
+			}
+			void fg()
+			{
+				m_exe.terminate() ;
+			}
+		private:
+			void terminate( const QString& id )
+			{
+				auto path = QString( "/proc/%1/task/" ).arg( id ) ;
 
-			_kill_children_recursively( QString::number( exe.processId() ) ) ;
+				auto filter = QDir::Filter::Dirs | QDir::Filter::NoDotAndDotDot ;
 
-			exe.terminate() ;
-		} ) ;
+				const auto ff = QDir( path ).entryList( filter ) ;
+
+				for( const auto& it : ff ){
+
+					QFile file( path + it + "/children" ) ;
+
+					if( file.open( QIODevice::ReadOnly ) ){
+
+						const auto pids = util::split( file.readAll(),' ',true ) ;
+
+						for( const auto& it : pids ){
+
+							this->terminate( it ) ;
+
+							QProcess exe ;
+							exe.start( "kill",{ "-s","SIGTERM",it } ) ;
+							exe.waitForFinished( -1 ) ;
+						}
+					}
+				}
+			}
+			QProcess& m_exe ;
+		} ;
+
+		utils::qthread::run( meaw( exe ) ) ;
 	}else{
 		exe.terminate() ;
 	}
@@ -505,9 +789,11 @@ QMenu * utility::setUpMenu( const Context& ctx,
 
 		if( combineText ){
 
-			mm.add( e.website,e.uiNameTranslated,e.options + "\n" + e.uiNameTranslated ) ;
+			auto m = e.options + "\n" + e.uiNameTranslated ;
+
+			mm.add( e.websiteTranslated,e.uiNameTranslated,m ) ;
 		}else{
-			mm.add( e.website,e.uiNameTranslated,e.options ) ;
+			mm.add( e.websiteTranslated,e.uiNameTranslated,e.options ) ;
 		}
 	} ) ;
 
@@ -517,9 +803,8 @@ QMenu * utility::setUpMenu( const Context& ctx,
 
 		menu->addSeparator() ;
 
-		translator::entry sx( QObject::tr( "Clear" ),
-						   utility::selectedAction::CLEARSCREEN,
-						   utility::selectedAction::CLEARSCREEN ) ;
+		auto m = utility::selectedAction::clearScreenText() ;
+		translator::entry sx( QObject::tr( "Clear" ),m,m ) ;
 
 		tr.addAction( menu,sx.move() ) ;
 	}
@@ -528,9 +813,8 @@ QMenu * utility::setUpMenu( const Context& ctx,
 
 		menu->addSeparator() ;
 
-		translator::entry mm( QObject::tr( "Open Download Folder" ),
-						   utility::selectedAction::OPENFOLDER,
-						   utility::selectedAction::OPENFOLDER ) ;
+		auto m = utility::selectedAction::openFolderText() ;
+		translator::entry mm( QObject::tr( "Open Download Folder" ),m,m ) ;
 
 		tr.addAction( menu,mm.move() ) ;
 	}
@@ -556,6 +840,10 @@ QString utility::homePath()
 	if( utility::platformIsWindows() ){
 
 		return QDir::homePath() + "/Desktop" ;
+
+	}else if( utility::platformisFlatPak() ){
+
+		return utility::local::downloadPath() ;
 	}else{
 		return QDir::homePath() ;
 	}
@@ -593,20 +881,12 @@ QStringList utility::updateOptions( const utility::updateOptionsStruct& s )
 	settings& settings             = s.stts ;
 	const utility::args& args      = s.args ;
 	const QStringList& urls        = s.urls ;
-	bool forceDownload             = s.forceDownload ;
 	const QString& downloadPath    = settings.downloadFolder() ;
 
 	const utility::uiIndex& uiIndex       = s.uiIndex;
 	const utility::downLoadOptions& dopts = s.dopts ;
 
 	QStringList opts ;
-
-	const auto& p = s.ctx.Engines().networkProxy() ;
-
-	if( p.isSet() ){
-
-		engine.setProxySetting( opts,p.networkProxyString() ) ;
-	}
 
 	auto oopts = [ & ](){
 
@@ -629,38 +909,13 @@ QStringList utility::updateOptions( const utility::updateOptionsStruct& s )
 
 	opts = opts + oopts ;
 
-	for( const auto& it : args.otherOptions() ){
-
-		opts.append( it ) ;
-	}
-
 	auto url = urls ;
 
-	engines::engine::functions::updateOpts ups{
-		args.uiDownloadOptions(),
-		args.otherOptions(),
-		uiIndex,
-		args.credentials(),
-		ent.playlist,
-		ent.playlist_count,
-		ent.playlist_id,
-		ent.playlist_title,
-		ent.playlist_uploader,
-		ent.playlist_uploader_id,
-		ent.n_entries,
-		url,
-		opts } ;
+	engines::engine::baseEngine::updateOpts ups( args,ent,uiIndex,url,opts ) ;
 
 	engine.updateDownLoadCmdOptions( ups,settings.downloadOptionsAsLast() ) ;
 
-	const auto& ca = engine.cookieArgument() ;
-	const auto& cv = settings.cookieFilePath( engine.name() ) ;
-
-	if( !ca.isEmpty() && !cv.isEmpty() ){
-
-		opts.append( ca ) ;
-		opts.append( cv ) ;
-	}
+	utility::setCookieOption( opts,settings,engine ) ;
 
 	for( auto& it : opts ){
 
@@ -669,9 +924,9 @@ QStringList utility::updateOptions( const utility::updateOptionsStruct& s )
 		it.replace( utility::stringConstants::mediaDownloaderCWD(),QDir::currentPath() ) ;
 	}
 
-	if( forceDownload ){
+	if( settings.useInternalArchiveFile() ){
 
-		utility::arguments( opts ).removeOptionWithArgument( "--download-archive" ) ;
+		opts.append( ep.archiveFileArgument( engine ) ) ;
 	}
 
 	engine.setTextEncondig( opts ) ;
@@ -685,16 +940,7 @@ void utility::initDone()
 {
 }
 
-int utility::sequentialID()
-{
-	static int id = 0 ;
-
-	--id ;
-
-	return id ;
-}
-
-int utility::concurrentID()
+int utility::loggerID()
 {
 	static int id = -1 ;
 
@@ -730,63 +976,6 @@ QString utility::downloadFolder( const Context& ctx )
 	return ctx.Settings().downloadFolder() ;
 }
 
-static QJsonArray _saveDownloadList( tableWidget& tableWidget,bool noFinishedSuccess )
-{
-	QJsonArray arr ;
-
-	auto _add = [ & ]( const tableWidget::entry& e ){
-
-		if( e.url.isEmpty() ){
-
-			return ;
-		}
-
-		auto obj = e.uiJson ;
-
-		auto title = obj.value( "title" ).toString() ;
-
-		if( !title.isEmpty() ){
-
-			auto url = obj.value( "url" ).toString() ;
-
-			if( title == url ){
-
-				obj.insert( "title","" ) ;
-			}
-		}
-
-		obj.insert( "runningState",e.runningState ) ;
-
-		obj.insert( "downloadOptions",e.downloadingOptions ) ;
-
-		obj.insert( "engineName",e.engineName ) ;
-
-		obj.insert( "downloadExtraOptions",e.extraDownloadingOptions ) ;
-
-		arr.append( obj ) ;
-	} ;
-
-	if( noFinishedSuccess ){
-
-		tableWidget.forEach( [ & ]( const tableWidget::entry& e ){
-
-			using gg = downloadManager::finishedStatus ;
-
-			if( !gg::finishedWithSuccess( e.runningState ) ){
-
-				_add( e ) ;
-			}
-		} ) ;
-	}else{
-		tableWidget.forEach( [ & ]( const tableWidget::entry& e ){
-
-			_add( e ) ;
-		} ) ;
-	}
-
-	return arr ;
-}
-
 void utility::saveDownloadList( const Context& ctx,tableWidget& tableWidget,bool pld )
 {
 	if( ctx.Settings().autoSavePlaylistOnExit() ){
@@ -804,7 +993,7 @@ void utility::saveDownloadList( const Context& ctx,tableWidget& tableWidget,bool
 			}
 		}
 
-		auto arr = _saveDownloadList( tableWidget,true ) ;
+		auto arr = utility::local::saveDownloadList( tableWidget,true ) ;
 
 		auto e = ctx.Engines().engineDirPaths().dataPath( "autoSavedList.json" ) ;
 
@@ -816,15 +1005,18 @@ void utility::saveDownloadList( const Context& ctx,tableWidget& tableWidget,bool
 
 			const auto rr = QJsonDocument::fromJson( m ).array() ;
 
-			for( const auto& it : rr ){
+			for( const auto it : rr ){
 
 				arr.append( it ) ;
 			}
 		}
 
-		auto m = QJsonDocument( arr ).toJson( QJsonDocument::Indented ) ;
+		if( arr.size() ){
 
-		engines::file( e,ctx.logger() ).write( m ) ;
+			auto m = QJsonDocument( arr ).toJson( QJsonDocument::Indented ) ;
+
+			engines::file( e,ctx.logger() ).write( m ) ;
+		}
 	}
 }
 
@@ -857,12 +1049,11 @@ void utility::saveDownloadList( const Context& ctx,QMenu& m,tableWidget& tableWi
 			filePath = utility::homePath() + "/MediaDowloaderList.json" ;
 		}
 
-		auto s = QFileDialog::getSaveFileName( &ctx.mainWidget(),
-						       toolTip,
-						       filePath ) ;
+		auto s = QFileDialog::getSaveFileName( &ctx.mainWidget(),toolTip,filePath ) ;
+
 		if( !s.isEmpty() ){
 
-			const auto e = _saveDownloadList( tableWidget,false ) ;
+			const auto e = utility::local::saveDownloadList( tableWidget,false ) ;
 
 			if( s.endsWith( ".json" ) ){
 
@@ -872,9 +1063,14 @@ void utility::saveDownloadList( const Context& ctx,QMenu& m,tableWidget& tableWi
 			}else{
 				QByteArray m ;
 
-				for( const auto& it : e ){
+				for( const auto it : e ){
 
-					m.append( it.toObject().value( "url" ).toString().toUtf8() + "\n" ) ;
+					auto obj = it.toObject() ;
+
+					auto title = obj.value( "title" ).toString().toUtf8() ;
+					auto url   = obj.value( "url" ).toString().toUtf8() ;
+
+					m.append( "#" + title + "\n" + url + "\n\n" ) ;
 				}
 
 				engines::file( s,ctx.logger() ).write( m ) ;
@@ -888,72 +1084,17 @@ bool utility::isRelativePath( const QString& e )
 	return QDir::isRelativePath( e ) ;
 }
 
-static QString _stringValue( QJsonObject& obj,const char * key )
+utility::MediaEntry::MediaEntry( const QJsonDocument& doc ) : m_json( doc )
 {
-	return obj.value( key ).toString().replace( "\"NA\"","NA" ) ;
+	this->parseJson() ;
 }
 
-static QString _intValue( QJsonObject& obj,const char * key )
-{
-	return QString::number( obj.value( key ).toInt() ) ;
-}
-
-utility::MediaEntry::MediaEntry( const QByteArray& data ) : m_json( data )
+utility::MediaEntry::MediaEntry( const QString& url,const engines::engine& engine,const QByteArray& data ) :
+	m_json( engine.parsePlayListData( url,data ) )
 {
 	if( m_json ){
 
-		auto object = m_json.doc().object() ;
-
-		m_formats              = object.value( "formats" ).toArray() ;
-
-		m_title                = _stringValue( object,"title" ) ;
-		m_url                  = _stringValue( object,"webpage_url" ) ;
-		m_uploadDate           = _stringValue( object,"upload_date" ) ;
-		m_id                   = _stringValue( object,"id" ) ;
-		m_thumbnailUrl         = _stringValue( object,"thumbnail" ) ;
-		m_uploader             = _stringValue( object,"uploader" ) ;
-		m_playlist             = _stringValue( object,"playlist" ) ;
-		m_playlist_id          = _stringValue( object,"playlist_id" ) ;
-		m_playlist_title       = _stringValue( object,"playlist_title" ) ;
-		m_playlist_uploader    = _stringValue( object,"playlist_uploader" ) ;
-		m_playlist_uploader_id = _stringValue( object,"playlist_uploader_id" ) ;
-
-		m_n_entries            = _intValue( object,"n_entries" ) ;
-		m_playlist_count       = _intValue( object,"playlist_count" ) ;
-
-		if( m_uploadDate.size() == 8 ){
-
-			auto year  = m_uploadDate.mid( 0,4 ).toInt() ;
-			auto month = m_uploadDate.mid( 4,2 ).toInt() ;
-			auto day   = m_uploadDate.mid( 6,2 ).toInt() ;
-
-			QDate d ;
-
-			if( d.setDate( year,month,day ) ){
-
-				m_uploadDate = d.toString() ;
-			}
-		}
-
-		if( !m_uploadDate.isEmpty() ){
-
-			m_uploadDate = utility::stringConstants::uploadDate() + " " + m_uploadDate ;
-		}
-
-		auto duration = object.value( "duration" ) ;
-
-		if( duration.isDouble() ){
-
-			m_intDuration = static_cast< int >( duration.toDouble() ) ;
-		}else{
-			m_intDuration = duration.toInt() ;
-		}
-
-		if( m_intDuration != 0 ){
-
-			auto s = engines::engine::functions::timer::duration( m_intDuration * 1000 ) ;
-			m_duration = utility::stringConstants::duration() + " " + s ;
-		}
+		this->parseJson() ;
 	}
 }
 
@@ -997,10 +1138,72 @@ QJsonObject utility::MediaEntry::uiJson() const
 	obj.insert( "title",m_title ) ;
 	obj.insert( "url",m_url ) ;
 	obj.insert( "duration",d ) ;
+	obj.insert( "intDuration",m_intDuration ) ;
 	obj.insert( "upload_date",u ) ;
 	obj.insert( "uploader",m_uploader ) ;
+	obj.insert( "id",m_id ) ;
 
 	return obj ;
+}
+
+void utility::MediaEntry::parseJson()
+{
+	auto object = m_json.toObject() ;
+
+	m_formats              = object.value( "formats" ).toArray() ;
+
+	m_title                = this->stringValue( object,"title" ) ;
+	m_url                  = this->stringValue( object,"webpage_url" ) ;
+	m_uploadDate           = this->stringValue( object,"upload_date" ) ;
+	m_id                   = this->stringValue( object,"id" ) ;
+	m_thumbnailUrl         = this->stringValue( object,"thumbnail" ) ;
+	m_uploader             = this->stringValue( object,"uploader" ) ;
+	m_playlist             = this->stringValue( object,"playlist" ) ;
+	m_playlist_id          = this->stringValue( object,"playlist_id" ) ;
+	m_playlist_title       = this->stringValue( object,"playlist_title" ) ;
+	m_playlist_uploader    = this->stringValue( object,"playlist_uploader" ) ;
+	m_playlist_uploader_id = this->stringValue( object,"playlist_uploader_id" ) ;
+
+	m_n_entries            = this->intValue( object,"n_entries" ) ;
+	m_playlist_count       = this->intValue( object,"playlist_count" ) ;
+
+	auto headers = object.value( "http_headers" ).toObject() ;
+	m_referer    = headers.value( "Referer" ).toString() ;
+	m_userAgent  = headers.value( "User-Agent" ).toString() ;
+
+	if( m_uploadDate.size() == 8 ){
+
+		auto year  = m_uploadDate.mid( 0,4 ).toInt() ;
+		auto month = m_uploadDate.mid( 4,2 ).toInt() ;
+		auto day   = m_uploadDate.mid( 6,2 ).toInt() ;
+
+		QDate d ;
+
+		if( d.setDate( year,month,day ) ){
+
+			m_uploadDate = d.toString() ;
+		}
+	}
+
+	if( !m_uploadDate.isEmpty() ){
+
+		m_uploadDate = utility::stringConstants::uploadDate() + " " + m_uploadDate ;
+	}
+
+	auto duration = object.value( "duration" ) ;
+
+	if( duration.isDouble() ){
+
+		m_intDuration = static_cast< int >( duration.toDouble() ) ;
+	}else{
+		m_intDuration = duration.toInt() ;
+	}
+
+	if( m_intDuration != 0 ){
+
+		auto s = engines::engine::baseEngine::timer::duration( m_intDuration * 1000 ) ;
+		m_duration = utility::stringConstants::duration() + " " + s ;
+	}
 }
 
 const engines::engine& utility::resolveEngine( const tableWidget& table,
@@ -1025,49 +1228,29 @@ const engines::engine& utility::resolveEngine( const tableWidget& table,
 	}
 }
 
-bool utility::platformIs32Bit()
-{
-#if QT_VERSION >= QT_VERSION_CHECK( 5,4,0 )
-	return QSysInfo::currentCpuArchitecture() != "x86_64" ;
-#else
-	//?????
-	return false ;
-#endif
-}
-
 void utility::addJsonCmd::add( const utility::addJsonCmd::entry& e )
 {
-	m_obj.insert( e.platform,[ & ]{
+	QJsonObject s ;
 
-		QJsonObject s ;
+	for( const auto& it : e.platformData ){
 
-		for( const auto& it : e.platformData ){
+		QJsonObject a ;
 
-			s.insert( it.archName,[ & ](){
+		a.insert( "Name",it.exeName() ) ;
 
-				QJsonObject a ;
+		QJsonArray arr ;
 
-				a.insert( "Name",it.exeName ) ;
+		for( const auto& xt : it.exeArgs() ){
 
-				a.insert( "Args",[ & ](){
-
-					QJsonArray arr ;
-
-					for( const auto& xt : it.exeArgs ){
-
-						arr.append( xt ) ;
-					}
-
-					return arr ;
-				}() ) ;
-
-				return a ;
-			}() ) ;
+			arr.append( xt ) ;
 		}
 
-		return s ;
+		a.insert( "Args",arr ) ;
 
-	}() ) ;
+		s.insert( it.archName(),a ) ;
+	}
+
+	m_obj.insert( e.platform,s ) ;
 }
 
 QString utility::fromSecsSinceEpoch( qint64 s )
@@ -1177,7 +1360,7 @@ bool utility::onlyWantedVersionInfo( const utility::cliArguments& args )
 {
 	if( args.contains( "--version" ) ){
 
-		std::cout << VERSION << std::endl ;
+		std::cout << utility::compileTimeVersion().toUtf8().constData() << std::endl ;
 
 		return true ;
 	}else{
@@ -1185,85 +1368,49 @@ bool utility::onlyWantedVersionInfo( const utility::cliArguments& args )
 	}
 }
 
-static util::version _get_process_version( const QString& path,
-					   const QString& cmd,
-					   const QProcessEnvironment& env )
-{
-	auto e = path + "/version_info.txt" ;
-
-	QFile file( e ) ;
-
-	if( file.exists() ){
-
-		if( file.open( QIODevice::ReadOnly ) ){
-
-			util::version m = file.readAll() ;
-
-			if( m.valid() ){
-
-				return m ;
-			}
-
-			file.close() ;
-		}
-
-		file.remove() ;
-	}
-
-	QProcess exe ;
-
-	exe.setProgram( cmd ) ;
-	exe.setArguments( { "--version" } ) ;
-	exe.setProcessEnvironment( env ) ;
-
-	exe.start() ;
-
-	exe.waitForFinished() ;
-
-	util::version m = exe.readAllStandardOutput().trimmed() ;
-
-	if( m.valid() ){
-
-		QFile file( e ) ;
-
-		if( file.open( QIODevice::WriteOnly | QIODevice::Truncate ) ){
-
-			file.write( m.toString().toUtf8() ) ;
-		}
-	}
-
-	return m ;
-}
-
-static bool _start_updated( QProcess& exe )
-{
-#if QT_VERSION >= QT_VERSION_CHECK( 5,10,0 )
-	return exe.startDetached() ;
-#else
-	exe.start() ;
-	exe.waitForFinished( -1 ) ;
-	return true ;
-#endif
-}
-
 bool utility::startedUpdatedVersion( settings& s,const utility::cliArguments& cargs )
 {
+	if( utility::platformIsNOTWindows() ){
+
+		return false ;
+	}
+
 	const auto& cpath = s.configPaths() ;
 
 	auto ew = cpath.endsWith( "/" ) ;
 
-	const auto m  = ew ? cpath + "update_new" : cpath + "/update_new" ;
-	const auto mm = ew ? cpath + "update" : cpath + "/update" ;
+	const auto update_new  = ew ? cpath + "update_new" : cpath + "/update_new" ;
+	const auto update      = ew ? cpath + "update" : cpath + "/update" ;
 
-	if( QFile::exists( m ) ){
+	QString updated_old ;
 
-		QDir dir( mm ) ;
+	if( QFile::exists( update_new ) ){
 
-		dir.removeRecursively() ;
-		dir.rename( m,mm ) ;
+		QDir dir ;
+
+		if( QFile::exists( update ) ){
+
+			while( true ){
+
+				auto m = utility::simpleRandomNumber() ;
+
+				updated_old = update + "-" + QString::number( m ) ;
+
+				if( QFileInfo::exists( updated_old ) ){
+
+					QThread::currentThread()->sleep( 1 ) ;
+				}else{
+					break ;
+				}
+			}
+
+			dir.rename( update,updated_old ) ;
+		}
+
+		dir.rename( update_new,update ) ;
 	}
 
-	QString exePath = mm + "/media-downloader.exe" ;
+	QString exePath = update + "/media-downloader.exe" ;
 
 	if( QFile::exists( exePath ) && !cargs.runningUpdated() ){
 
@@ -1271,13 +1418,13 @@ bool utility::startedUpdatedVersion( settings& s,const utility::cliArguments& ca
 
 		auto exeDirPath = utility::windowsApplicationDirPath() ;
 
-		if( !QFile::exists( mm + "/platforms" ) ){
+		if( !QFile::exists( update + "/platforms" ) ){
 
 			env.insert( "PATH",exeDirPath + ";" + env.value( "PATH" ) ) ;
 			env.insert( "QT_PLUGIN_PATH",exeDirPath ) ;
 		}
 
-		util::version uv = _get_process_version( mm,exePath,env ) ;
+		util::version uv = utility::local::get_process_version( update,exePath,env ) ;
 
 		util::version cv = utility::runningVersionOfMediaDownloader() ;
 
@@ -1285,7 +1432,8 @@ bool utility::startedUpdatedVersion( settings& s,const utility::cliArguments& ca
 
 			if( cv < uv ){
 
-				auto args = cargs.arguments( cpath,exeDirPath,s.portableVersion() ) ;
+				auto e = s.portableVersion() ;
+				auto args = cargs.arguments( cpath,exeDirPath,updated_old,e ) ;
 
 				QProcess exe ;
 
@@ -1293,9 +1441,9 @@ bool utility::startedUpdatedVersion( settings& s,const utility::cliArguments& ca
 				exe.setArguments( args ) ;
 				exe.setProcessEnvironment( env ) ;
 
-				return _start_updated( exe ) ;
+				return utility::local::start_updated( exe ) ;
 			}else{
-				//QDir( mm ).removeRecursively() ;
+				utils::qthread::run( [ update ]{ QDir( update ).removeRecursively() ; } ) ;
 			}
 		}
 	}
@@ -1308,40 +1456,9 @@ bool utility::platformIsLikeWindows()
 	return utility::platformIsWindows() || utility::platformisOS2() ;
 }
 
-class runTimeVersionInfo
-{
-public:
-	void setInstanceVersion( const QString& e )
-	{
-		m_instanceVersion = e ;
-	}
-	void setAboutInstanceVersion( const QString& e )
-	{
-		m_aboutInstanceVersion = e ;
-	}
-	const QString& instanceVersion() const
-	{
-		return m_instanceVersion ;
-	}
-	const QString& aboutInstanceVersion() const
-	{
-		return m_aboutInstanceVersion ;
-	}
-private:
-	QString m_instanceVersion ;
-	QString m_aboutInstanceVersion ;
-} ;
-
-static runTimeVersionInfo& _runTimeVersions()
-{
-	static runTimeVersionInfo m ;
-
-	return m ;
-}
-
 QString utility::aboutVersionInfo()
 {
-	const auto& e = _runTimeVersions().aboutInstanceVersion() ;
+	const auto& e = utility::local::runTimeVersions().aboutInstanceVersion() ;
 
 	if( e.isEmpty() ){
 
@@ -1351,29 +1468,97 @@ QString utility::aboutVersionInfo()
 	}
 }
 
+QString utility::compileTimeVersion()
+{
+	QString m = VERSION ;
+	m.replace( ".git_tag","" ) ;
+
+	auto s = util::split( m,"." ) ;
+
+	QString e ;
+
+	if( s.size() ){
+
+		auto max = s.size() >= 4 ? 4 : s.size() ;
+
+		e = s[ 0 ] ;
+
+		for( int i = 1 ; i < max ; i++ ){
+
+			e += "." + s[ i ] ;
+		}
+	}
+
+	return e ;
+}
+
+bool utility::runningGitVersion()
+{
+	auto m = utility::runningVersionOfMediaDownloader() ;
+
+	return utility::runningGitVersion( m ) ;
+}
+
+bool utility::runningGitVersion( const QString& m )
+{
+	return util::split( m,"." ).size() > 3 ;
+}
+
+const QString& utility::fakeRunningVersionOfMediaDownloader()
+{
+	return utility::local::runTimeVersions().instanceVersion() ;
+}
+
 QString utility::runningVersionOfMediaDownloader()
 {
-	const auto& e = _runTimeVersions().instanceVersion() ;
+	const auto& e = utility::fakeRunningVersionOfMediaDownloader() ;
 
 	if( e.isEmpty() ){
 
-		return VERSION ;
+		return utility::compileTimeVersion() ;
 	}else{
 		return e ;
 	}
 }
 
+QString utility::parseVersionInfo( const utils::qprocess::outPut& r )
+{
+	if( r.success() ){
+
+		if( utility::containsLinkerWarning( r.stdOut ) ){
+
+			const auto m = util::split( r.stdOut,'\n' ) ;
+
+			QStringList s ;
+
+			for( const auto& it : m ){
+
+				if( !utility::containsLinkerWarning( it ) ){
+
+					s.append( it ) ;
+				}
+			}
+
+			return s.join( '\n' ).toUtf8() ;
+		}else{
+			return r.stdOut ;
+		}
+	}else{
+		return {} ;
+	}
+}
+
 void utility::setRunningVersionOfMediaDownloader( const QString& e )
 {
-	_runTimeVersions().setInstanceVersion( e ) ;
+	utility::local::runTimeVersions().setInstanceVersion( e ) ;
 }
 
 void utility::setHelpVersionOfMediaDownloader( const QString& e )
 {
-	_runTimeVersions().setAboutInstanceVersion( e ) ;
+	utility::local::runTimeVersions().setAboutInstanceVersion( e ) ;
 }
 
-static QStringList _parseOptions( const QString& e,const engines::engine& engine )
+QStringList utility::args::parseOptions( const QString& e,const engines::engine& engine )
 {
 	auto m = util::splitPreserveQuotes( e ) ;
 
@@ -1428,8 +1613,8 @@ static QStringList _parseOptions( const QString& e,const engines::engine& engine
 
 utility::args::args( const QString& uiOptions,const QString& otherOptions,const engines::engine& engine )
 {
-	m_uiDownloadOptions = _parseOptions( uiOptions,engine ) ;
-	m_otherOptions      = _parseOptions( otherOptions,engine ) ;
+	m_uiDownloadOptions = this->parseOptions( uiOptions,engine ) ;
+	m_otherOptions      = this->parseOptions( otherOptions,engine ) ;
 	m_credentials       = engine.setCredentials( m_uiDownloadOptions,m_otherOptions ) ;
 }
 
@@ -1493,36 +1678,58 @@ void utility::setPermissions( const QString& e )
 	utility::setPermissions( s ) ;
 }
 
-void utility::networkReply::invoke( QObject * obj,const char * member )
-{
-	QMetaObject::invokeMethod( obj,
-				   member,
-				   Qt::QueuedConnection,
-				   Q_ARG( utility::networkReply,*this ) ) ;
-}
-
 void utility::networkReply::getData( const Context& ctx,const utils::network::reply& reply )
 {
 	if( reply.success() ){
 
 		m_data = reply.data() ;
 
+		if( m_data.isEmpty() ){
+
+			QString m = "Network Error: Request Succeeded But No Data Received" ;
+
+			ctx.logger().add( m,utility::loggerID() ) ;
+		}
 	}else if( reply.timeOut() ){
 
 		QString m = "Network Error: Network Request Timed Out" ;
 
-		ctx.logger().add( m,utility::sequentialID() ) ;
+		ctx.logger().add( m,utility::loggerID() ) ;
 	}else{
-		ctx.logger().add( "Network Error: " + reply.errorString(),utility::sequentialID() ) ;
+		ctx.logger().add( "Network Error: " + reply.errorString(),utility::loggerID() ) ;
 	}
+}
+
+bool utility::cliArguments::useFakeMdHash()
+{
+	return utility::local::useFakeHash ;
+}
+
+bool utility::cliArguments::debug()
+{
+	return utility::local::cliArguments_debug ;
 }
 
 utility::cliArguments::cliArguments( int argc,char ** argv )
 {
 	for( int i = 0 ; i < argc ; i++ ){
 
-		m_args.append( argv[ i ] ) ;
+		auto s = argv[ i ] ;
+
+		if( s ){
+
+			m_args.append( s ) ;
+		}
 	}
+
+	if( m_args.contains( "--qDebug" ) || m_args.contains( "--qdebug" ) || m_args.contains( "--debug" ) ){
+
+		utility::local::cliArguments_debug = true ;
+	}else{
+		utility::local::cliArguments_debug = false ;
+	}
+
+	utility::local::useFakeHash = this->contains( "--fake-hash" ) ;
 
 	if( this->runningUpdated() ){
 
@@ -1547,6 +1754,11 @@ bool utility::cliArguments::portable() const
 	return this->contains( "--portable" ) ;
 }
 
+bool utility::cliArguments::printMediaPlayers() const
+{
+	return this->contains( "--show-media-players" ) ;
+}
+
 QString utility::cliArguments::dataPath() const
 {
 	return this->value( "--dataPath" ) ;
@@ -1560,6 +1772,11 @@ QString utility::cliArguments::originalPath() const
 QString utility::cliArguments::originalVersion() const
 {
 	return this->value( "--running-version" ) ;
+}
+
+QString utility::cliArguments::pathToOldUpdatedVersion() const
+{
+	return this->value( "--path-to-old-updated-version" ) ;
 }
 
 QString utility::cliArguments::value( const char * m ) const
@@ -1582,6 +1799,7 @@ QString utility::cliArguments::value( const char * m ) const
 
 QStringList utility::cliArguments::arguments( const QString& cpath,
 					      const QString& exeDirPath,
+					      const QString& oldVersionPath,
 					      bool portableVersion ) const
 {
 	auto args = m_args ;
@@ -1601,6 +1819,12 @@ QStringList utility::cliArguments::arguments( const QString& cpath,
 		args.append( "--portable" ) ;
 	}
 
+	if( !oldVersionPath.isEmpty() ){
+
+		args.append( "--path-to-old-updated-version" ) ;
+		args.append( oldVersionPath ) ;
+	}
+
 	args.append( "--exe-org-path" ) ;
 	args.append( exeDirPath ) ;
 
@@ -1612,33 +1836,16 @@ const QStringList& utility::cliArguments::arguments() const
 	return m_args ;
 }
 
-#ifdef Q_OS_WIN
-
-extern Q_CORE_EXPORT int qt_ntfs_permission_lookup;
-
-void utility::ntfsEnablePermissionChecking( bool e )
-{
-	if( e ){
-
-		qt_ntfs_permission_lookup++ ;
-	}else{
-		qt_ntfs_permission_lookup-- ;
-	}
-}
-
-#else
-
-void utility::ntfsEnablePermissionChecking( bool )
-{
-}
-
-#endif
-
 bool utility::pathIsFolderAndExists( const QString& e )
 {
-	QFileInfo m( e ) ;
+	if( e.isEmpty() ){
 
-	return m.exists() && m.isDir() ;
+		return false ;
+	}else{
+		QFileInfo m( e ) ;
+
+		return m.exists() && m.isDir() ;
+	}
 }
 
 QByteArray utility::barLine()
@@ -1662,41 +1869,44 @@ utility::printOutPut::printOutPut( const utility::cliArguments& args )
 
 			m_outPutFile.setFileName( m ) ;
 
-			m_outPutFile.open( QIODevice::WriteOnly | QIODevice::Append ) ;
+			auto m = m_outPutFile.open( QIODevice::WriteOnly | QIODevice::Append ) ;
+
+			Q_UNUSED( m )
 		}
 	}
 }
 
-void utility::printOutPut::operator()( const QByteArray& e )
+void utility::printOutPut::operator()( int id,const QByteArray& e )
 {
-	if( m_status != utility::printOutPut::status::notSet ){
+	if( m_outPutFile.isOpen() ){
 
-		if( m_outPutFile.isOpen() ){
+		m_outPutFile.write( e ) ;
+	}
 
-			m_outPutFile.write( e ) ;
-		}
+	if( m_status == utility::printOutPut::status::qdebug ){
 
-		if( m_status == utility::printOutPut::status::qdebug ){
+		qDebug() << "id: " + QString::number( id ) ;
+		qDebug() << e ;
+		qDebug() << "--------------------------------" ;
 
-			qDebug() << e ;
-			qDebug() << "--------------------------------" ;
+	}else if( m_status == utility::printOutPut::status::debug ){
 
-		}else if( m_status == utility::printOutPut::status::debug ){
+		auto m = "id: " + QString::number( id ).toUtf8() ;
 
-			std::cout << e.constData() << std::endl ;
-			std::cout << "--------------------------------" << std::endl ;
-		}
+		std::cout << m.constData() << std::endl ;
+		std::cout << e.constData() << std::endl ;
+		std::cout << "--------------------------------" << std::endl ;
 	}
 }
 
-utility::printOutPut::operator bool() const
+bool utility::printOutPut::valid() const
 {
 	return m_status != utility::printOutPut::status::notSet ;
 }
 
 void utility::failedToParseJsonData( Logger& logger,const QJsonParseError& error )
 {
-	auto id = utility::sequentialID() ;
+	auto id = utility::loggerID() ;
 
 	logger.add( "Failed To Parse Json Data:" + error.errorString(),id ) ;
 }
@@ -1732,33 +1942,6 @@ void utility::hideUnhideEntries( QMenu& m,tableWidget& table,int row,bool showHi
 	}
 }
 
-static QStringList _listOptionsFromDownloadOptions( const QString& e )
-{
-	QStringList m ;
-
-	auto ee = util::splitPreserveQuotes( e ) ;
-
-	for( auto it = ee.begin() ; it != ee.end() ; it++ ){
-
-		const auto& s = *it ;
-
-		if( s == "\"--proxy\"" || s == "--proxy" ){
-
-			auto xt = it + 1 ;
-
-			if( xt != ee.end() ){
-
-				m.append( "--proxy" ) ;
-				m.append( *xt ) ;
-			}
-
-			break ;
-		}
-	}
-
-	return m ;
-}
-
 void utility::addToListOptionsFromsDownload( QStringList& args,
 					     const QString& downLoadOptions,
 					     const Context& ctx,
@@ -1766,13 +1949,15 @@ void utility::addToListOptionsFromsDownload( QStringList& args,
 {
 	auto m = ctx.TabManager().Configure().engineDefaultDownloadOptions( engine.name() ) ;
 
-	auto ee = _listOptionsFromDownloadOptions( m ) ;
+	auto ee = utility::local::listOptionsFromDownloadOptions( m ) ;
 
 	const auto& mm = ctx.Engines().networkProxy() ;
 
 	if( mm.isSet() ){
 
-		engine.setProxySetting( args,mm.networkProxyString() ) ;
+		engines::engine::baseEngine::optionsEnvironment m ;
+
+		engine.setProxySetting( m,args,mm.networkProxyString() ) ;
 	}
 
 	if( !ee.isEmpty() ){
@@ -1780,9 +1965,9 @@ void utility::addToListOptionsFromsDownload( QStringList& args,
 		args = args + ee ;
 	}
 
-	auto ss = args + _listOptionsFromDownloadOptions( downLoadOptions ) ;
+	auto ss = args + utility::local::listOptionsFromDownloadOptions( downLoadOptions ) ;
 
-	for( int i = ss.size() - 2 ; i > -1 ; i-- ){
+	for( int i = static_cast< int >( ss.size() ) - 2 ; i > -1 ; i-- ){
 
 		if( ss[ i ] == "--proxy" ){
 
@@ -1793,7 +1978,7 @@ void utility::addToListOptionsFromsDownload( QStringList& args,
 	mm.setDefaultProxy() ;
 }
 
-bool utility::copyFile( const QString& s,const QString& d )
+bool utility::copyFile( const QString& s,const QString& d,bool setExePermssion )
 {
 	QFile src( s ) ;
 
@@ -1813,7 +1998,21 @@ bool utility::copyFile( const QString& s,const QString& d )
 
 					dst.write( buffer.data(),m ) ;
 				}else{
-					return src.size() == dst.size() ;
+					if( src.size() == dst.size() ){
+
+						if( setExePermssion ){
+
+							auto s = dst.permissions() | QFileDevice::ExeOwner ;
+
+							dst.setPermissions( s ) ;
+						}
+
+						return true ;
+					}else{
+						dst.remove() ;
+
+						return false ;
+					}
 				}
 			}
 		}
@@ -1824,12 +2023,619 @@ bool utility::copyFile( const QString& s,const QString& d )
 
 bool utility::addData( const QByteArray& e )
 {
-	auto s = "\r                                                      \r" ;
-
-	if( e == "\r\r" || e == s || e.contains( "[download] " ) ){
+	if( e.trimmed().isEmpty() || e.contains( "[download] " ) ){
 
 		return false ;
 	}else{
 		return true ;
+	}
+}
+
+void utility::contextMenuForDirectUrl( std::vector< UrlLinks > links,
+				      QMenu& m,
+				      const QJsonObject& obj,
+				      const Context& ctx )
+{	
+	class mediaPlayerActions
+	{
+	public:
+		mediaPlayerActions( std::vector< utility::UrlLinks > l,
+				   const QJsonObject& obj,
+				   QMenu& m,
+				   const Context& ctx ) :
+			m_obj( obj ),
+			m_links( std::move( l ) ),
+			m_menu( m ),
+			m_mediaPlayer( ctx.Settings().openWith( ctx.logger() ) ),
+			m_ctx( ctx )
+		{
+			if( m_links.size() == 0 ){
+
+				this->disable() ;
+			}else{
+				this->setClipboard() ;
+				this->setOpenUrl() ;
+			}
+		}
+		void disable()
+		{
+			auto ac = m_menu.addAction( QObject::tr( "Copy Url" ) ) ;
+
+			ac->setEnabled( false ) ;
+
+			auto mm = QObject::tr( "Open Url With %1" ) ;
+
+			for( const auto& e : m_mediaPlayer.opts() ){
+
+				auto s = mm.arg( e.name ) ;
+
+				m_menu.addAction( s )->setEnabled( false ) ;
+			}
+		}
+		void setClipboard()
+		{
+			auto cpb = QApplication::clipboard() ;
+
+			if( !cpb ){
+
+				return ;
+			}
+
+			class cb
+			{
+			public:
+				cb( const QString& m,QClipboard& cb ) :
+					m_url( m ),
+					m_clipboard( cb )
+				{
+				}
+				void operator()()
+				{
+					m_clipboard.setText( m_url ) ;
+				}
+			private:
+				QString m_url ;
+				QClipboard& m_clipboard ;
+			} ;
+
+			auto act = &QAction::triggered ;
+
+			if( m_links.size() == 1 ){
+
+				auto ee = m_menu.addAction( QObject::tr( "Copy Url" ) ) ;
+
+				auto ss = m_links[ 0 ].toList().join( " " ) ;
+
+				QObject::connect( ee,act,cb( ss,*cpb ) ) ;
+			}else{
+				for( size_t i = 0 ; i < m_links.size() ; i++ ){
+
+					auto e = QString::number( i + 1 ) ;
+
+					auto s = QObject::tr( "Copy Url %1" ).arg( e ) ;
+
+					auto ee = m_menu.addAction( s ) ;
+
+					auto mm = m_links[ i ].toList().join( " " ) ;
+
+					QObject::connect( ee,act,cb( mm,*cpb ) ) ;
+				}
+			}
+		}
+		void setOpenUrl()
+		{
+			auto act = &QAction::triggered ;
+
+			const auto& adp = m_ctx.Settings().appDataPath() ;
+
+			if( m_links.size() == 1 ){
+
+				auto mm = QObject::tr( "Open Url With %1" ) ;
+
+				for( const auto& e : m_mediaPlayer.opts() ){
+
+					auto s = mm.arg( e.name ) ;
+
+					auto ee = m_menu.addAction( s ) ;
+
+					this->setEnabled( ee,e ) ;
+
+					auto ss = m_links[ 0 ].toList() ;
+
+					auto ac = m_mediaPlayer.ac( ss,e,adp,m_obj ) ;
+
+					QObject::connect( ee,act,ac.move() ) ;
+				}
+			}else{
+				for( const auto& a : m_mediaPlayer.opts() ){
+
+					auto mm = QObject::tr( "Open Urls With %2" ) ;
+
+					auto s = mm.arg( a.name ) ;
+
+					auto ee = m_menu.addAction( s ) ;
+
+					this->setEnabled( ee,a ) ;
+
+					QStringList ss ;
+
+					for( size_t i = 0 ; i < m_links.size() ; i++ ){
+
+						ss.append( m_links[ i ].toList() ) ;
+					}
+
+					auto ac = m_mediaPlayer.ac( ss,a,adp,m_obj ) ;
+
+					QObject::connect( ee,act,ac.move() ) ;
+				}
+			}
+		}
+	private:
+		void setEnabled( QAction * ac,const settings::mediaPlayer::PlayerOpts& e )
+		{
+			if( utility::platformisFlatPak() ){
+
+				if( e.name == "VLC" ){
+
+					auto m = m_ctx.Settings().flatpakIntance().getVLC().valid() ;
+					ac->setEnabled( m ) ;
+				}
+			}
+		}
+		const QJsonObject& m_obj ;
+		std::vector< utility::UrlLinks > m_links ;
+		QMenu& m_menu ;
+		settings::mediaPlayer m_mediaPlayer ;
+		const Context& m_ctx ;
+	} ;
+
+	mediaPlayerActions( std::move( links ),obj,m,ctx ) ;
+}
+
+void utility::deleteTmpFiles( const QString& df,std::vector< QByteArray > files )
+{
+	class meaw
+	{
+	public:
+		meaw( const QString& df,std::vector< QByteArray > files ) :
+			m_df( df ),m_files( std::move( files ) )
+		{
+		}
+		void operator()()
+		{
+			for( const auto& it : m_files ){
+
+				auto m = m_df + "/" + it ;
+
+				QFile::remove( m + ".part" ) ;
+				QFile::remove( m ) ;
+			}
+		}
+	private:
+		QString m_df ;
+		std::vector< QByteArray > m_files ;
+	} ;
+
+	utils::qthread::run( meaw( df,std::move( files ) ) ) ;
+}
+
+bool utility::Qt6Version()
+{
+#if QT_VERSION < QT_VERSION_CHECK( 6,0,0 )
+	return false ;
+#else
+	return true ;
+#endif
+}
+
+bool utility::Qt5Version()
+{
+	return !utility::Qt6Version() ;
+}
+
+QString utility::OSXApplicationDirPath()
+{
+	return QCoreApplication::applicationDirPath() ;
+}
+
+QString utility::OSXtranslationFilesPath()
+{
+	return utility::OSXApplicationDirPath() + "/../Resources/translations" ;
+}
+
+QString utility::OSX3rdPartyDirPath()
+{
+	return utility::OSXApplicationDirPath() + "/extra" ;
+}
+
+bool utility::platformisFlatPak()
+{
+	static auto m = !QProcessEnvironment::systemEnvironment().value( "FLATPAK_ID" ).isEmpty() ;
+
+	return m ;
+}
+
+bool utility::platformIsAppImage()
+{
+	static auto m = !QProcessEnvironment::systemEnvironment().value( "APPIMAGE" ).isEmpty() ;
+
+	return m ;
+}
+
+quint64 utility::simpleRandomNumber()
+{
+	return static_cast< quint64 >( time( nullptr ) ) ;
+}
+
+QString utility::rename( const Context& ctx,
+			QTableWidgetItem& item,
+			const QString& cwd,
+			const QString& newName,
+			const QString& oldName )
+{
+	Logger& logger = ctx.logger() ;
+
+	auto oldPath = cwd + "/" + oldName ;
+	auto newPath = cwd + "/" + newName ;
+
+	auto id = utility::loggerID() ;
+
+	fileRename rename( oldPath,newPath ) ;
+
+	auto e = QObject::tr( "Renaming \"%1\" to \"%2\"" ) ;
+
+	auto bar = utility::barLine() ;
+
+	logger.add( bar,id ) ;
+
+	logger.add( e.arg( rename.oldPath(),rename.newPath() ),id ) ;
+
+	if( rename() ){
+
+		auto txt = item.text() ;
+
+		txt.replace( oldName,newName ) ;
+
+		item.setText( txt ) ;
+
+		logger.add( bar,id ) ;
+
+		return newName ;
+	}else{
+		auto s = rename.errorString() ;
+
+		ctx.logger().add( QObject::tr( "Renaming Failed: %3" ).arg( s ),id ) ;
+
+		logger.add( bar,id ) ;
+
+		return {} ;
+	}
+}
+
+template< typename Type,typename ... Args >
+QString FileSystemOperation( Args&& ... args )
+{
+	Type m( std::forward< Args >( args ) ... ) ;
+
+	if( m() ){
+
+		return {} ;
+	}else{
+		return m.errorString() ;
+	}
+}
+
+QString utility::rename( const QString& oldName,const QString& newName )
+{
+	return FileSystemOperation< fileRename >( oldName,newName ) ;
+}
+
+QString utility::removeFile( const QString& e )
+{
+	return FileSystemOperation< fileRemove >( e ) ;
+}
+
+QString utility::removeFolder( const QString& e )
+{
+	return FileSystemOperation< dirRemove >( e ) ;
+}
+
+bool utility::containsLinkerWarning( const QByteArray& e )
+{
+	return e.contains( "ERROR: ld.so: object" ) || e.contains( "RequestsDependencyWarning:" ) ;
+}
+
+void utility::copyToClipboardUrls( tableWidget& table )
+{
+	QStringList list ;
+
+	auto lastColumn = table.columnCount() - 1 ;
+
+	for( int row = 0 ; row < table.rowCount() ; row++ ){
+
+		if( table.item( row,lastColumn ).isSelected() ){
+
+			list.append( table.url( row ) ) ;
+		}
+	}
+
+	auto m = QApplication::clipboard() ;
+
+	if( m ){
+
+		m->setText( list.join( "\n" ) ) ;
+	}
+}
+
+bool utility::fileIsInvalidForGettingThumbnail( const QByteArray& e )
+{
+	return e.endsWith( ".mp4" ) || e.endsWith( ".webm" ) || e.endsWith( ".avi" ) ;
+}
+
+utility::CPU::CPU() : m_cpu( utility::CPU::getCPU() )
+{
+}
+
+bool utility::CPU::x86_32() const
+{
+	if( utility::local::pretendPlatform().is32Bit() ){
+
+		return true ;
+	}else{
+		return m_cpu == "i386" || m_cpu == "x86_32" ;
+	}
+}
+
+bool utility::CPU::x86_64() const
+{
+	return m_cpu == "x86_64" ;
+}
+
+bool utility::CPU::aarch64() const
+{
+	return m_cpu == "arm64" || m_cpu == "aarch64";
+}
+
+bool utility::CPU::aarch32() const
+{
+	return m_cpu == "arm" || m_cpu == "aarch32" ;
+}
+
+const QString& utility::CPU::getCPU()
+{
+#if QT_VERSION >= QT_VERSION_CHECK( 5,4,0 )
+	static QString m = QSysInfo::currentCpuArchitecture() ;
+	return m ;
+#else
+	static QString m = utility::CPU::getCPUNatively() ;
+	return m ;
+#endif
+}
+
+QByteArray utility::CPU::getCPUNatively()
+{
+	if( utility::platformIsLinux() ){
+
+		QFile file( "/proc/sys/kernel/arch" ) ;
+
+		if( file.open( QIODevice::ReadOnly ) ){
+
+			return file.readAll().trimmed() ;
+		}
+	}
+
+	return QByteArray() ;
+}
+
+void utility::setCookieOption( QStringList& opts,settings& s,const engines::engine& engine )
+{
+	const auto& ca = engine.cookieArgument() ;
+	const auto& cv = s.cookieBrowserName( engine.name() ) ;
+
+	if( !ca.isEmpty() && !cv.isEmpty() ){
+
+		opts.append( ca ) ;
+		opts.append( cv ) ;
+	}
+
+	auto cookieFile = s.cookieBrowserTextFilePath( engine.name() ) ;
+	const auto& caa = engine.cookieTextFileArgument() ;
+
+	if( !cookieFile.isEmpty() && !caa.isEmpty() ){
+
+		opts.append( caa ) ;
+		opts.append( cookieFile ) ;
+	}
+}
+
+void utility::impl::qJsonArrJoin( QJsonArray& )
+{
+}
+
+void utility::archiveData::addToHistory( QJsonObject obj )
+{
+	class meaw
+	{
+	public:
+		meaw( const Context& ctx,QJsonObject obj ) : m_ctx( ctx ),m_obj( std::move( obj ) )
+		{
+		}
+		void bg()
+		{
+			utility::archiveData::guardHistoryFile() ;
+			this->updateHistory() ;
+			utility::archiveData::unGuardHistoryFile() ;
+		}
+		void fg()
+		{
+		}
+	private:
+		bool historyFound( const QString& path,const QString& url )
+		{
+			QFile file( path ) ;
+
+			if( file.open( QIODevice::ReadOnly ) ){
+
+				auto m = file.map( 0,file.size() ) ;
+
+				if( m ){
+
+					auto t = reinterpret_cast< char * >( m ) ;
+
+					auto s = QByteArray::fromRawData( t,file.size() ) ;
+
+					bool e = s.contains( url.toUtf8() ) ;
+
+					file.unmap( m ) ;
+
+					return e ;
+				}else{
+					return false ;
+				}
+			}else{
+				return false ;
+			}
+		}
+		void updateHistory()
+		{
+			const auto& e = m_ctx.Engines().engineDirPaths().downloadHistoryFilePath() ;
+
+			auto url = m_obj.value( "Url" ).toString() ;
+
+			if( !this->historyFound( e,url ) ){
+
+				QFile file( e ) ;
+
+				if( file.open( QIODevice::WriteOnly | QIODevice::Append ) ){
+
+					auto s = QJsonDocument::JsonFormat::Indented ;
+
+					auto m = QJsonDocument( m_obj ).toJson( s ) ;
+
+					file.write( m ) ;
+				}
+			}
+		}
+		const Context& m_ctx ;
+		QJsonObject m_obj ;
+	} ;
+
+	utils::qthread::run( meaw( m_ctx,std::move( obj ) ) ) ;
+}
+
+QByteArray utility::archiveData::logHistoryData( const Context& ctx )
+{
+	QFile file( ctx.Engines().engineDirPaths().downloadHistoryFilePath() ) ;
+
+	utility::archiveData::guardHistoryFile() ;
+
+	QByteArray data ;
+
+	if( file.open( QIODevice::ReadOnly ) ){
+
+		data = file.readAll() ;
+
+		file.close() ;
+	}
+
+	utility::archiveData::unGuardHistoryFile() ;
+
+	return data ;
+}
+
+utility::archiveData::archiveData( QStringList opts,const engines::engine& engine,const Context& ctx ) :
+	m_options( std::move( opts ) ),
+	m_ctx( ctx )
+{
+	auto downloadArchivePath = m_ctx.Engines().engineDirPaths().archiveFilePath( engine ) ;
+
+	utility::arguments Opts( m_options ) ;
+
+	m_maxMediaLength = Opts.hasValue( "--max-media-length",true ) ;
+	m_minMediaLength = Opts.hasValue( "--min-media-length",true ) ;
+
+	m_breakOnExisting = Opts.hasOption( "--break-on-existing",true ) ;
+	m_skipOnExisting  = Opts.hasOption( "--skip-on-existing",true ) ;
+
+	if( m_breakOnExisting || m_skipOnExisting ){
+
+		if( ctx.Settings().useInternalArchiveFile() ){
+
+			QFile file( downloadArchivePath ) ;
+
+			if( file.open( QIODevice::ReadOnly ) ){
+
+				m_archiveFileData = file.readAll() ;
+			}
+		}
+
+		auto s = ctx.TabManager().Configure().engineDefaultDownloadOptions( engine.name() ) ;
+
+		auto ss = util::splitPreserveQuotes( s ) ;
+
+		auto mm = utility::arguments( ss ).hasValue( "--download-archive" ) ;
+
+		if( !mm.isEmpty() && QFile::exists( mm ) ){
+
+			QFile file( mm ) ;
+
+			if( file.open( QIODevice::ReadOnly ) ){
+
+				m_archiveFileData.append( "\n" + file.readAll() ) ;
+			}
+		}
+	}
+}
+
+bool utility::archiveData::contains( const QString& e ) const
+{
+	if( m_archiveFileData.isEmpty() ){
+
+		return false ;
+	}else{
+		return m_archiveFileData.contains( e.toUtf8() ) ;
+	}
+}
+
+QMutex utility::archiveData::m_mutex ;
+
+void utility::archiveData::guardHistoryFile()
+{
+	utility::archiveData::m_mutex.lock() ;
+}
+
+void utility::archiveData::unGuardHistoryFile()
+{
+	utility::archiveData::m_mutex.unlock() ;
+}
+
+void utility::addtoHistory( const engines::engine& engine,
+			    const Context& ctx,
+			    const QString& tabName,
+			    const tableWidget::entry& e )
+{
+	if( ctx.Settings().saveDownloadHistory() ){
+
+		QJsonObject obj ;
+
+		obj.insert( "EngineName",engine.name() ) ;
+		obj.insert( "TabName",tabName ) ;
+		obj.insert( "Url",e.url ) ;
+		obj.insert( "Id",e.videoId ) ;
+		obj.insert( "Title",e.title ) ;
+		obj.insert( "DownloadDate",QDateTime::currentDateTime().toString() ) ;
+
+		if( e.videoId.isEmpty() ) {
+
+			auto yt = "https://www.youtube.com/watch?v=" ;
+
+			if( e.url.startsWith( yt ) ){
+
+				auto m = e.url ;
+				obj.insert( "Id",m.replace( yt,"" ) ) ;
+			}
+		}
+
+		utility::archiveData( {},engine,ctx ).addToHistory( std::move( obj ) ) ;
 	}
 }

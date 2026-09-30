@@ -91,10 +91,8 @@ public:
 		this->item( row ).uiText = s ;
 		m_table.item( row,1 )->setText( s ) ;
 	}
-	void setRunningState( const QString& s,int row )
-	{
-		this->item( row ).runningState = s ;
-	}
+	void setRunningState( const QString& s,int row ) ;
+	void setStateAsRunning( int row,bool runningRecursively ) ;
 	const QString& downloadingOptions( int row ) const
 	{
 		return this->item( row ).downloadingOptions ;
@@ -131,6 +129,29 @@ public:
 	{
 		return this->item( row ).chapters ;
 	}
+	void setRunningRecursively( int row,bool s )
+	{
+		this->item( row ).runningRecursively = s ;
+	}
+	bool runningRecursively( int row ) const
+	{
+		return this->item( row ).runningRecursively ;
+	}
+	bool isRunning( int row ) const ;
+	int totalRunningRecursively() const
+	{
+		int m = 0 ;
+
+		for( int row = 0 ; row < this->rowCount() ; row++ ){
+
+			if( this->isRunning( row ) && this->runningRecursively( row ) ){
+
+				m++ ;
+			}
+		}
+
+		return m ;
+	}
 	bool splitByChapters( int row ) const
 	{
 		return this->item( row ).splitByChapters ;
@@ -146,6 +167,15 @@ public:
 	const QString& runningState( int row ) const
 	{
 		return this->item( row ).runningState ;
+	}
+	bool finishedWithSuccess( int row ) const ;
+	bool runningOrFinishedWithSuccess( int row ) const ;
+	int nextAvailableEntryToDownload( int ) const ;
+	QByteArray mediaEntry( int row ) const
+	{
+		auto obj = this->entryAt( row ).uiJson ;
+		obj.insert( "formats",this->mediaProperties( row ) ) ;
+		return QJsonDocument( obj ).toJson() ;
 	}
 	int startPosition() const
 	{
@@ -168,9 +198,12 @@ public:
 		template< typename MediaProperties >
 		entry( const QPixmap& thumbnail,
 		       const QString& rState,
-		       const MediaProperties& media ) :
+		       const MediaProperties& media,
+		       const QString& uu = QString() ) :
 			url( media.url() ),
-			uiText( media.uiText() ),
+			uiText( uu.isEmpty() ? media.uiText() : uu + "\n" + media.uiText() ),
+			title( media.title() ),
+			videoId( media.id() ),
 			runningState( rState ),
 			playlist( media.playlist() ),
 			playlist_count( media.playlist_count() ),
@@ -181,7 +214,8 @@ public:
 			n_entries( media.n_entries() ),
 			mediaProperties( media.formats() ),
 			uiJson( media.uiJson() ),
-			thumbnail( thumbnail )
+			thumbnail( thumbnail ),
+			showFirst( media.showFirst() )
 		{
 		}
 		entry move()
@@ -190,6 +224,8 @@ public:
 		}
 		QString url ;
 		QString uiText ;
+		QString title ;
+		QString videoId ;
 		QString runningState ;
 		QString downloadingOptions ;
 		QString downloadingOptionsUi ;
@@ -208,7 +244,12 @@ public:
 		QJsonArray mediaProperties ;
 		QJsonObject uiJson ;
 		QPixmap thumbnail ;
+		std::vector< QByteArray > fileNames ;
 		bool splitByChapters = false ;
+		bool banner = false ;
+		bool showFirst = false ;
+		bool runningRecursively = false ;
+		int id = -1 ;
 	} ;
 	template< typename Function >
 	void forEach( Function function )
@@ -218,9 +259,37 @@ public:
 			function( it ) ;
 		}
 	}
-	const tableWidget::entry& entryAt( size_t s )
+	int rowWithUrl( const QString& url )
+	{
+		for( size_t m = 0 ; m < m_items.size() ; m++ ){
+
+			if( m_items[ m ].url == url ){
+
+				return static_cast< int >( m ) ;
+			}
+		}
+
+		return -1 ;
+	}
+	bool hasUrl( const QString& url )
+	{
+		return this->rowWithUrl( url ) != -1 ;
+	}
+	bool hasNoUrl( const QString& url )
+	{
+		return this->rowWithUrl( url ) == -1 ;
+	}
+	const tableWidget::entry& entryAt( size_t s ) const
 	{
 		return m_items[ s ] ;
+	}
+	void setConcurrentId( size_t s,int id )
+	{
+		m_items[ s ].id = id ;
+	}
+	void setFileNames( size_t m,const std::vector< QByteArray >& s )
+	{
+		m_items[ m ].fileNames = s ;
 	}
 	enum class type{ DownloadOptions,
 			 DownloadExtendedOptions,
@@ -232,6 +301,8 @@ public:
 
 	static void selectRow( QTableWidgetItem * current,QTableWidgetItem * previous,int firstColumnNumber = 0 ) ;
 	static void setTableWidget( QTableWidget&,const tableWidget::tableWidgetOptions& ) ;
+	static QString makeClean( const QString& e ) ;
+	static bool compare( const QString&,const QString&,bool ) ;
 
 	void setDownloadingOptions( tableWidget::type,
 				    int row,
@@ -263,26 +334,36 @@ public:
 
 	int addItem( tableWidget::entry,sizeHint = {} ) ;
 	int rowCount() const ;
+	int columnCount() const ;
 	int currentRow() const ;
 	void replace( tableWidget::entry,int row,sizeHint = {} ) ;
 	void replace( const QJsonArray&,int row ) ;
 	void clear() ;
 	void setVisible( bool ) ;
 	void selectLast() ;
+	void selectRow( int ) ;
 	void setEnabled( bool ) ;
 	void removeRow( int ) ;
+	void removeAllSelected() ;
 	void hideRow( int ) ;
-	bool isSelected( int ) ;
+	bool isSelected( int ) const ;
+	std::vector< int > selectedRows() const ;
 	bool noneAreRunning() ;
+	int numberCurrentlyRunning() ;
 	bool rowIsVisible( int ) ;
+	bool isRowHidden( int ) ;
+	bool rowIsSelected( int ) ;
 	bool containsHiddenRows() ;
 	bool allFinishedWithSuccess() ;
+	int finishWithSuccess() ;
 
-	tableWidget( QTableWidget& t,const QFont& font,int init,int textAlignment ) ;
+	tableWidget( QTableWidget& t,const QFont& font,int init,Qt::Alignment textAlignment ) ;
 
 	QTableWidgetItem& item( int row,int column ) const ;
 
 	QTableWidget& get() ;
+
+	void setColumnNumbersTo( int ) ;
 
 	template< typename MemberFunction,typename Callback >
 	void connect( MemberFunction m,Callback c )
@@ -302,25 +383,24 @@ private:
 	int m_init ;
 
 	std::vector< tableWidget::entry > m_items ;
-	int m_textAlignment ;
+	Qt::Alignment m_textAlignment ;
 } ;
 
-template< typename Stuff >
-struct tableWidgetRow
+class baseRemoveAllSelected
 {
-	tableWidgetRow( const Stuff& s,const QStringList& e ) :
-		stuff( s ),entries( e )
-	{
-	}
-	Stuff stuff ;
-	QStringList entries ;
+public:
+	virtual void operator()( int ) = 0 ;
+	virtual ~baseRemoveAllSelected() ;
+private:
 } ;
 
-template< typename Stuff >
+void tableMiniWidgetRemoveAllSelected( QTableWidget&,std::unique_ptr< baseRemoveAllSelected > ) ;
+
+template< typename Stuff,size_t COLUMN_COUNT >
 class tableMiniWidget
 {
 public:
-	tableMiniWidget( QTableWidget& t,const QFont& ) : m_table( t )
+	tableMiniWidget( QTableWidget& t,int s,const QFont& ) : m_table( t ),m_startPosition( s )
 	{
 		tableWidget::setTableWidget( m_table,tableWidget::tableWidgetOptions() ) ;
 	}
@@ -328,6 +408,11 @@ public:
 	void connect( MemberFunction m,Callback c )
 	{
 		QObject::connect( &m_table,m,std::move( c ) ) ;
+	}
+	template< typename MemberFunction,typename Obj,typename ObjMemberFunction >
+	void connect( MemberFunction m,Obj obj,ObjMemberFunction objm )
+	{
+		QObject::connect( &m_table,m,obj,objm ) ;
 	}
 	template< typename Function >
 	void each( Function function )
@@ -352,6 +437,29 @@ public:
 		auto header = m_table.horizontalHeader() ;
 
 		QObject::connect( header,&QHeaderView::sectionClicked,std::move( t ) ) ;
+	}	
+	void removeAllSelected()
+	{
+		class meaw : public baseRemoveAllSelected
+		{
+		public:
+			meaw( tableMiniWidget< Stuff,COLUMN_COUNT >& m ) : m_parent( m )
+			{
+			}
+			void operator()( int row ) override
+			{
+				m_parent.removeRow( row ) ;
+			}
+			~meaw()
+			{
+			}
+		private:
+			tableMiniWidget< Stuff,COLUMN_COUNT >& m_parent ;
+		} ;
+
+		auto s = std::make_unique< meaw >( *this ) ;
+
+		tableMiniWidgetRemoveAllSelected( m_table,std::move( s ) ) ;
 	}
 	void setUpHeaderMenu()
 	{
@@ -373,9 +481,13 @@ public:
 	{
 		tableWidget::setTableWidget( m_table,opts ) ;
 	}
-	int rowCount()
+	int rowCount() const
 	{
 		return m_table.rowCount() ;
+	}
+	int startPosition() const
+	{
+		return m_startPosition ;
 	}
 	void selectRow( QTableWidgetItem * current,QTableWidgetItem * previous,int s )
 	{
@@ -385,9 +497,25 @@ public:
 		}
 		tableWidget::selectRow( current,previous,s ) ;
 	}
-	bool isSelected( int row )
+	bool isSelected( int row ) const
 	{
 		return m_table.item( row,m_table.columnCount() - 1 )->isSelected() ;
+	}
+	std::vector< int > selectedRows() const
+	{
+		std::vector<int> s ;
+
+		int m = m_table.rowCount() ;
+
+		for( int i = 0 ; i < m ; i++ ){
+
+			if( this->isSelected( i ) ){
+
+				s.emplace_back( i ) ;
+			}
+		}
+
+		return s ;
 	}
 	void setVisible( bool e )
 	{
@@ -446,13 +574,24 @@ public:
 	{
 		m_table.setEnabled( e ) ;
 	}
+	void setLastRow()
+	{
+		if( m_table.rowCount() ){
+
+			m_table.setCurrentCell( m_table.rowCount() - 1,m_table.columnCount() - 1 ) ;
+		}
+	}
 	QTableWidget& get()
 	{
 		return m_table ;
 	}
-	const Stuff& stuffAt( int s )
+	const Stuff& stuffAt( int s ) const
 	{
 		return m_stuff[ static_cast< size_t >( s ) ] ;
+	}
+	const Stuff& stuffAtLast() const
+	{
+		return m_stuff.back() ;
 	}
 	int addRow( Stuff stuff = Stuff() )
 	{
@@ -470,53 +609,97 @@ public:
 
 		return row ;
 	}
-	int add( const QStringList& entries,Stuff stuff = Stuff() )
+	template< typename ... Args >
+	int add( Stuff stuff,const QString& s,Args&& ... args )
 	{
-		if( entries.size() == m_table.columnCount() ){
+		static_assert( sizeof...( args ) + 1 == COLUMN_COUNT,"Error1" ) ;
 
-			int row = this->addRow( std::move( stuff ) ) ;
+		int row = this->addRow( std::move( stuff ) ) ;
 
-			for( int col = 0 ; col < entries.size() ; col++ ){
+		this->updateRow( row,s,std::forward< Args >( args ) ... ) ;
 
-				m_table.item( row,col )->setText( entries[ col ] ) ;
-			}
-
-			return row ;
-		}
-
-		return -1 ;
+		return row ;
 	}
-	void replace( const QStringList& entries,int row,Stuff stuff = Stuff() )
+	template< typename ... Args >
+	int add( const QString& s,Args&& ... args )
 	{
-		if( entries.size() == m_table.columnCount() ){
+		static_assert( sizeof...( args ) + 1 == COLUMN_COUNT,"Error2" ) ;
 
-			m_stuff[ row ] = std::move( stuff ) ;
+		int row = this->addRow( Stuff() ) ;
 
-			for( int col = 0 ; col < entries.size() ; col++ ){
+		this->updateRow( row,s,std::forward< Args >( args ) ... ) ;
 
-				m_table.item( row,col )->setText( entries[ col ] ) ;
-			}
-		}
+		return row ;
 	}
-	void selectMediaOptions( QStringList& optionsList,QTableWidgetItem& item,QLineEdit& opts )
+	int add( Stuff stuff,const engines::engine::baseEngine::mediaInfo& m )
 	{
-		if( item.isSelected() ){
+		int row = this->addRow( std::move( stuff ) ) ;
 
-			auto text = this->item( item.row(),0 ).text() ;
+		const auto& a = m.id() ;
+		const auto& b = m.ext() ;
+		const auto& c = m.resolution() ;
+		const auto& d = m.fileSize() ;
+		const auto& e = m.info() ;
 
-			if( !optionsList.contains( text ) ){
+		this->updateRow( row,a,b,c,d,e ) ;
 
-				optionsList.append( text ) ;
-			}
-		}
+		return row ;
+	}
+	int add( engines::engine::baseEngine::mediaInfo mm )
+	{
+		int row = this->addRow( std::move( mm ) ) ;
 
+		const auto& m = this->stuffAtLast() ;
+
+		const auto& a = m.id() ;
+		const auto& b = m.ext() ;
+		const auto& c = m.resolution() ;
+		const auto& d = m.fileSize() ;
+		const auto& e = m.info() ;
+
+		this->updateRow( row,a,b,c,d,e ) ;
+
+		return row ;
+	}
+	template< typename ... Args >
+	void replace( int row,Stuff stuff,const QString& s,Args&& ... args )
+	{
+		static_assert( sizeof...( args ) + 1 == COLUMN_COUNT,"Error3" ) ;
+
+		m_stuff[ row ] = std::move( stuff ) ;
+
+		this->updateRow( row,s,std::forward< Args >( args ) ... ) ;
+	}
+	template< typename ... Args >
+	void replace( int row,const QString& s,Args&& ... args )
+	{
+		static_assert( sizeof...( args ) + 1 == COLUMN_COUNT,"Error4" ) ;
+
+		m_stuff[ row ] = Stuff() ;
+
+		this->updateRow( row,s,std::forward< Args >( args ) ... ) ;
+	}
+	void selectMediaOptions( QStringList& optionsList,QLineEdit& opts )
+	{
 		for( int row = 0 ; row < this->rowCount() ; row++ ){
 
 			auto& item = this->item( row,0 ) ;
 
-			if( !item.isSelected() ){
+			auto txt = item.text() ;
 
-				optionsList.removeAll( item.text() ) ;
+			if( !txt.isEmpty() ){
+
+				txt = util::split( txt,"\n" )[ 0 ] ;
+			}
+
+			if( item.isSelected() ){
+
+				if( !optionsList.contains( txt ) ){
+
+					optionsList.append( txt ) ;
+				}
+			}else{
+				optionsList.removeAll( txt ) ;
 			}
 		}
 
@@ -527,6 +710,13 @@ public:
 			opts.setText( optionsList.join( "+" ) ) ;
 		}
 	}
+	void selectRow( int row )
+	{
+		if( m_table.rowCount() > 0 ){
+
+			m_table.setCurrentCell( row,m_table.columnCount() - 1 ) ;
+		}
+	}
 	void selectLast()
 	{
 		if( m_table.rowCount() > 0 ){
@@ -535,49 +725,87 @@ public:
 			m_table.scrollToBottom() ;
 		}
 	}
-private:
+private:	
+	void updateRow( int,int )
+	{
+	}
+	template< typename ... Args >
+	void updateRow( int row,int col,const QString& s,Args&& ... args )
+	{
+		m_table.item( row,col )->setText( s ) ;
+
+		this->updateRow( row,++col,std::forward< Args >( args ) ... ) ;
+	}
+	template< typename ... Args >
+	void updateRow( int row,const QString& s,Args&& ... args )
+	{
+		static_assert( sizeof...( args ) + 1 == COLUMN_COUNT,"Error5" ) ;
+
+		this->updateRow( row,0,s,std::forward< Args >( args ) ... ) ;
+	}
+	template< typename Function >
+	void fromStuff( const QJsonObject& e,const Function& function )
+	{
+		engines::engine::baseEngine::mediaInfo::fromQJobject( e,function ) ;
+	}
+	template< typename Function >
+	void fromStuff( const engines::engine::baseEngine::mediaInfo& e,const Function& function )
+	{
+		function( e.id(),e.ext(),e.resolution(),e.fileSize(),e.info() ) ;
+	}
+	class Forwader
+	{
+	public:
+		template< typename Parent >
+		Forwader( int row,Parent& e ) : m_row( row ),m_parent( e )
+		{
+		}
+		template< typename ... Args >
+		void operator()( Args&& ... args ) const
+		{
+			m_parent.updateRow( m_row,std::forward< Args >( args ) ... ) ;
+		}
+	private:
+		int m_row ;
+		tableMiniWidget< Stuff,COLUMN_COUNT >& m_parent ;
+	} ;
 	void arrangeTable( bool ascending,int column )
 	{
-		std::vector< tableWidgetRow< Stuff > > rows ;
-
-		this->each( [ & ]( const QStringList& e,const Stuff& stuff ){
-
-			rows.emplace_back( stuff,e ) ;
-		} ) ;
-
 		class meaw
 		{
 		public:
 			meaw( bool a,int c ) : m_ascending( a ),m_column( c )
 			{
 			}
-			bool operator()( const tableWidgetRow< Stuff >& s,
-					 const tableWidgetRow< Stuff >& e )
+			QString getSize( const QJsonObject& e )
 			{
-				const auto& a = s.entries[ m_column ] ;
-				const auto& b = e.entries[ m_column ] ;
+				return engines::engine::baseEngine::mediaInfo::fileSizeRaw( e ) ;
+			}
+			const QString& getSize( const engines::engine::baseEngine::mediaInfo& e )
+			{
+				return e.fileSizeRaw() ;
+			}
+			QString getId( const QJsonObject& e )
+			{
+				return engines::engine::baseEngine::mediaInfo::id( e ) ;
+			}
+			const QString& getId( const engines::engine::baseEngine::mediaInfo& e )
+			{
+				return e.id() ;
+			}
+			bool operator()( const Stuff& s,const Stuff& e )
+			{
+				if( m_column == 0 ){
 
-				bool aa ;
-				bool bb ;
+					const auto& a = this->getId( s ) ;
+					const auto& b = this->getId( e ) ;
 
-				auto aaa = a.toInt( &aa ) ;
-				auto bbb = b.toInt( &bb ) ;
-
-				if( m_ascending ){
-
-					if( aa && bb ){
-
-						return aaa < bbb ;
-					}else{
-						return a < b ;
-					}
+					return tableWidget::compare( a,b,m_ascending ) ;
 				}else{
-					if( aa && bb ){
+					const auto& a = this->getSize( s ) ;
+					const auto& b = this->getSize( e ) ;
 
-						return aaa > bbb ;
-					}else{
-						return a > b ;
-					}
+					return tableWidget::compare( a,b,m_ascending ) ;
 				}
 			}
 		private:
@@ -585,13 +813,17 @@ private:
 			bool m_column ;
 		} ;
 
-		std::sort( rows.begin(),rows.end(),meaw( ascending,column ) ) ;
+		auto stuff = std::move( m_stuff ) ;
+
+		std::sort( stuff.begin(),stuff.end(),meaw( ascending,column ) ) ;
 
 		this->clear() ;
 
-		for( const auto& it : rows ){
+		for( auto& it : stuff ){
 
-			this->add( it.entries,it.stuff ) ;
+			int row = this->addRow( std::move( it ) ) ;
+
+			this->fromStuff( this->stuffAtLast(),Forwader( row,*this ) ) ;
 		}
 	}
 	template< typename Rows >
@@ -691,7 +923,7 @@ private:
 
 		std::vector< entry > rows ;
 
-		if( column == 0 ){
+		if( column == 0 || column == 3 ){
 
 			auto e = QObject::tr( "Arrange In Ascending Order" ) ;
 
@@ -720,6 +952,7 @@ private:
 	}
 	int m_columnClicked = -1 ;
 	QTableWidget& m_table ;
+	int m_startPosition ;
 	std::vector< Stuff > m_stuff ;
 };
 

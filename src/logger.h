@@ -32,6 +32,8 @@
 
 #include <vector>
 
+class Context ;
+
 class Logger
 {
 public:
@@ -91,16 +93,13 @@ public:
 			{
 				return m_processId ;
 			}
-			struct IdLessThanZero
+			struct extraLogs
 			{
-				bool operator()( int id ) const
-				{
-					return id < 0 ;
-				}
+				bool operator()( const Logger::Data::processOutput& ) const ;
 			} ;
-			bool operator==( const IdLessThanZero& id ) const
+			bool operator==( const extraLogs& extra ) const
 			{
-				return id( m_processId ) ;
+				return extra( *this ) ;
 			}
 			const std::vector< Logger::Data::processOutput::outputEntry >& entries() const
 			{
@@ -133,7 +132,11 @@ public:
 			std::vector< Logger::Data::processOutput::outputEntry > m_data ;
 		};
 	public:
-		Data( bool s ) : m_mainLogger( s )
+		template< typename LogsLimits >
+		Data( bool s,const LogsLimits& l ) :
+			m_mainLogger( s ),
+			m_maxLogEntries( l.maxLogEntries() ),
+			m_longEntriesToRemove( l.removeEntriesCount() )
 		{
 		}
 		bool mainLogger() const
@@ -205,6 +208,17 @@ public:
 		{
 			m_processOutputs.clear() ;
 		}
+		void clear( int id )
+		{
+			for( auto it = m_processOutputs.begin() ; it != m_processOutputs.end() ; it++ ){
+
+				if( it->processId() == id ){
+
+					it->entries().clear() ;
+					break ;
+				}
+			}
+		}
 		class QByteArrayList
 		{
 		public:
@@ -233,7 +247,7 @@ public:
 			}
 			const QByteArray& last() const
 			{
-				return *m_array.rbegin() ;
+				return m_array.rbegin()->data() ;
 			}
 			size_t size() const
 			{
@@ -241,7 +255,7 @@ public:
 			}
 			const QByteArray& operator[]( size_t m ) const
 			{
-				return m_array[ m ] ;
+				return m_array[ m ].data() ;
 			}
 			template< typename Function,
 				  typename std::enable_if< std::is_void< util::types::result_of< Function,QByteArray > >::value,int >::type = 0 >
@@ -249,7 +263,7 @@ public:
 			{
 				for( const auto& it : m_array ){
 
-					function( it ) ;
+					function( it.data() ) ;
 				}
 			}
 			template< typename Function,
@@ -258,7 +272,7 @@ public:
 			{
 				for( const auto& it : m_array ){
 
-					if( function( it ) ){
+					if( function( it.data() ) ){
 
 						break ;
 					}
@@ -271,11 +285,7 @@ public:
 				ByteArray( const QByteArray& s ) : m_array( &s )
 				{
 				}
-				operator const QByteArray&() const
-				{
-					return *m_array ;
-				}
-				operator QString() const
+				const QByteArray& data() const
 				{
 					return *m_array ;
 				}
@@ -308,6 +318,7 @@ public:
 		{
 			return m_processOutputs.rbegin()->entries().rbegin()->progressLine() ;
 		}
+		QByteArray debugOutPut() const ;
 		QByteArray join( const QByteArray& joiner ) const ;
 		QByteArray toLine() const
 		{
@@ -316,6 +327,15 @@ public:
 		QByteArray toLines() const
 		{
 			return this->join( "\n" ) ;
+		}
+		QByteArray join( const QByteArray& joiner,int id ) const ;
+		QByteArray toLine( int id ) const
+		{
+			return this->join( "",id ) ;
+		}
+		QByteArray toLines( int id ) const
+		{
+			return this->join( "\n",id ) ;
 		}
 		void removeExtraLogs() ;
 		bool removeFirstFinished() ;
@@ -386,16 +406,42 @@ public:
 		{
 			return m_processOutputs.rbegin()->doneDownloading() ;
 		}
-		template< typename Function >
-		void replaceOrAdd( const QByteArray& text,int id,const Function& function )
+		template< typename Filter >
+		void replaceOrAdd( const Filter& filter )
 		{
-			_replaceOrAdd( text,id,function ) ;
+			_replaceOrAdd( filter ) ;
 		}
 		void add( const QByteArray& text,int id )
 		{
-			auto _false = []( const QByteArray& ){ return false ; } ;
+			class Filter
+			{
+			public:
+				Filter( int id,const QByteArray& arr ) :
+					m_id( id ),m_text( arr )
+				{
+				}
+				int id() const
+				{
+					return m_id ;
+				}
+				const QByteArray& text() const
+				{
+					return m_text ;
+				}
+				bool skip( const QByteArray& ) const
+				{
+					return false ;
+				}
+				bool replace( const QByteArray& ) const
+				{
+					return false ;
+				}
+			private:
+				int m_id ;
+				const QByteArray& m_text ;
+			} ;
 
-			_replaceOrAdd( text,id,_false ) ;
+			_replaceOrAdd( Filter( id,text ) ) ;
 		}
 		class YtDlpData
 		{
@@ -404,11 +450,11 @@ public:
 			{
 				return m_filePath ;
 			}
-			void setFilePath( const QString& m )
+			void setFilePath( const QByteArray& m )
 			{
 				if( !m.isEmpty() && m != m_filePath ){
 
-					m_filePath = m.toUtf8() ;
+					m_filePath = m ;
 				}
 			}
 		private:
@@ -445,11 +491,11 @@ public:
 			{
 				return m_fileName ;
 			}
-			void setFileName( const QString& m )
+			void setFileName( const QByteArray& m )
 			{
 				if( !m.isEmpty() && m != m_fileName ){
 
-					m_fileName = m.toUtf8() ;
+					m_fileName = m ;
 				}
 			}
 		private:
@@ -465,16 +511,33 @@ public:
 		{
 			return m_svtData ;
 		}
+		void addFileName( const QByteArray& e )
+		{
+			for( const auto& it : m_fileNames ){
+
+				if( it == e ){
+
+					return ;
+				}
+			}
+
+			m_fileNames.emplace_back( e ) ;
+		}
+		const std::vector< QByteArray >& fileNames() const
+		{
+			return m_fileNames ;
+		}
 	private:
+		void manageLogSize( std::vector< Logger::Data::processOutput::outputEntry >& ) ;
 		bool doneDownloadingText( const QByteArray& data ) ;
-		template< typename Function >
-		void _replaceOrAdd( const QByteArray& text,int id,const Function& function )
+		template< typename Filter >
+		void _replaceOrAdd( const Filter& filter )
 		{
 			for( auto it = m_processOutputs.rbegin() ; it != m_processOutputs.rend() ; it++ ){
 
-				if( it->processId() == id ){
+				if( it->processId() == filter.id() ){
 
-					if( this->doneDownloadingText( text ) ){
+					if( this->doneDownloadingText( filter.text() ) ){
 
 						it->setDoneDownloading() ;
 					}
@@ -483,17 +546,22 @@ public:
 
 					if( ee.empty() ){
 
-						ee.emplace_back( text ) ;
+						ee.emplace_back( filter.text() ) ;
 					}else{
 						auto iter = ee.rbegin() ;
 
 						const auto& s = iter->text() ;
 
-						if( function( s ) ){
+						if( filter.replace( s ) ){
 
-							iter->replace( text ) ;
+							iter->replace( filter.text() ) ;
 						}else{
-							ee.emplace_back( text ) ;
+							this->manageLogSize( ee ) ;
+
+							if( !filter.skip( filter.text() ) ){
+
+								ee.emplace_back( filter.text() ) ;
+							}
 						}
 					}
 
@@ -501,12 +569,18 @@ public:
 				}
 			}
 
-			m_processOutputs.emplace_back( id,text ) ;
+			if( !filter.skip( filter.text() ) ){
+
+				m_processOutputs.emplace_back( filter.id(),filter.text() ) ;
+			}
 		}
 		std::list< Logger::Data::processOutput > m_processOutputs ;
 		bool m_mainLogger ;
 		YtDlpData m_ytDlpData ;
 		SvtData m_svtData ;
+		std::vector< QByteArray > m_fileNames ;
+		size_t m_maxLogEntries ;
+		size_t m_longEntriesToRemove ;
 	} ;
 
 	Logger( QPlainTextEdit&,QWidget * parent,settings& ) ;
@@ -517,6 +591,10 @@ public:
 	void registerDone( int ) ;
 	void add( const QByteArray&,int id ) ;
 	void clear() ;
+	auto clearFunction()
+	{
+		return [ this ](){ this->clear() ; } ;
+	}
 	template< typename Function >
 	void add( const Function& function,int id )
 	{
@@ -526,9 +604,35 @@ public:
 	}
 	void logError( const QByteArray& data,int id )
 	{
-		auto function = []( const QByteArray& ){ return false ; } ;
+		class Filter
+		{
+		public:
+			Filter( int id,const QByteArray& data ) :
+				m_id( id ),m_text( "[media-downloader][std error] " + data )
+			{
+			}
+			int id() const
+			{
+				return m_id ;
+			}
+			const QByteArray& text() const
+			{
+				return m_text ;
+			}
+			bool skip( const QByteArray& ) const
+			{
+				return false ;
+			}
+			bool replace( const QByteArray& ) const
+			{
+				return false ;
+			}
+		private:
+			int m_id ;
+			QByteArray m_text ;
+		} ;
 
-		m_processOutPuts.replaceOrAdd( "[media-downloader][std error] " + data,id,function ) ;
+		m_processOutPuts.replaceOrAdd( Filter( id,data ) ) ;
 
 		this->update() ;
 	}
@@ -537,21 +641,51 @@ public:
 		this->setMaxProcessLog( static_cast< int >( s ) ) ;
 	}
 	void setMaxProcessLog( int s ) ;
-	void showLogWindow() ;
+	void showLogWindow( int ) ;
+	void showDownloadHistoryWindow() ;
+	void showAllLogs() ;
+	bool clearDownloadHistory() ;
 	void reTranslateLogWindow() ;
 	void updateView( bool e ) ;
+	void setContext( const Context& ctx )
+	{
+		m_ctx = &ctx ;
+	}
+	const std::vector< QByteArray >& fileNames()
+	{
+		return m_processOutPuts.fileNames() ;
+	}
 	Logger( const Logger& ) = delete ;
 	Logger& operator=( const Logger& ) = delete ;
 	Logger( Logger&& ) = delete ;
 	Logger& operator=( Logger&& ) = delete ;
-private:
+	const Context * ctx()
+	{
+		return m_ctx ;
+	}
+private:	
 	void update() ;
 	logWindow m_logWindow ;
 	QPlainTextEdit& m_textEdit ;
 	Logger::Data m_processOutPuts ;
 	bool m_updateView = false ;
 	settings& m_settings ;
-	int m_maxProcessLog ;
+	const Context * m_ctx = nullptr ;
+	int m_maxProcessLog = 1 ;
+	int m_id = -1 ;
+
+	class meaw : public QObject
+	{
+	public:
+		meaw( Logger& p ) : m_parent( p )
+		{
+		}
+		bool eventFilter( QObject *,QEvent * ) override ;
+	private:
+		Logger& m_parent ;
+	} ;
+
+	meaw m_qobj ;
 } ;
 
 class LoggerWrapper
@@ -592,25 +726,110 @@ public:
 	{
 		return std::move( *this ) ;
 	}
+	const std::vector< QByteArray >& fileNames()
+	{
+		return m_logger->fileNames() ;
+	}
 private:
 	Logger * m_logger ;
 	int m_id ;
 };
 
-template< typename F,typename U,typename E >
+template< typename F,typename U,typename L >
+class LoggerBasicDownloader
+{
+public:
+	LoggerBasicDownloader() = delete ;
+	LoggerBasicDownloader( F function,U ff,Logger& logger,int id,const L& logs ) :
+		m_function( std::move( function ) ),
+		m_functionUpdate( std::move( ff ) ),
+		m_logger( logger ),
+		m_localLogger( false,logs ),
+		m_id( id )
+	{
+	}
+	void add( const QString& e )
+	{
+		this->add( e.toUtf8() ) ;
+	}
+	void add( const QByteArray& e )
+	{
+		m_logger.add( e,m_id ) ;
+
+		if( e.startsWith( "[media-downloader]" ) ){
+
+			m_localLogger.add( e,m_id ) ;
+		}else{
+			m_localLogger.add( "[media-downloader] " + e,m_id ) ;
+		}
+
+		this->update() ;
+	}
+	void logError( const QByteArray& data )
+	{
+		m_logger.logError( data,m_id ) ;
+	}
+	void registerDone()
+	{
+		m_logger.registerDone( m_id ) ;
+	}
+	void clear()
+	{
+		m_logger.clear() ;
+		m_localLogger.clear() ;
+	}
+	template< typename Function >
+	void add( const Function& function )
+	{
+		m_logger.add( function,m_id ) ;
+		function( m_localLogger,m_id,false ) ;
+		this->update() ;
+	}
+	LoggerBasicDownloader move()
+	{
+		return std::move( *this ) ;
+	}
+	const std::vector< QByteArray >& fileNames()
+	{
+		return m_localLogger.fileNames() ;
+	}
+private:
+	void update()
+	{
+		if( m_localLogger.isNotEmpty() ){
+
+			m_functionUpdate( m_function( m_localLogger ) ) ;
+		}
+	}
+	F m_function ;
+	U m_functionUpdate ;
+	Logger& m_logger ;
+	Logger::Data m_localLogger ;
+	int m_id ;
+} ;
+
+template< typename F,typename U,typename L >
+auto make_loggerBasicDownloader( F function,Logger& logger,U fu,int id,const L& logs )
+{
+	using lbd = LoggerBasicDownloader< F,U,L > ;
+
+	return lbd( std::move( function ),std::move( fu ),logger,id,logs ) ;
+}
+
+template< typename F,typename U,typename E,typename L >
 class loggerBatchDownloader
 {
 public:
-	loggerBatchDownloader( F function,Logger& logger,U ff,E err,int id ) :
+	loggerBatchDownloader( F function,Logger& logger,U ff,E err,int id,const L& logs ) :
 		m_function( std::move( function ) ),
 		m_functionUpdate( std::move( ff ) ),
 		m_error( std::move( err ) ),
 		m_logger( logger ),
-		m_localLogger( false ),
+		m_localLogger( false,logs ),
 		m_id( id )
 	{
 	}
-	loggerBatchDownloader< F,U,E > move()
+	loggerBatchDownloader< F,U,E,L > move()
 	{
 		return std::move( *this ) ;
 	}
@@ -652,6 +871,10 @@ public:
 		m_error( data ) ;
 		m_logger.logError( data,m_id ) ;
 	}
+	const std::vector< QByteArray >& fileNames()
+	{
+		return m_localLogger.fileNames() ;
+	}
 private:
 	void update()
 	{
@@ -668,28 +891,33 @@ private:
 	int m_id ;
 } ;
 
-template< typename F,typename U,typename E >
-auto make_loggerBatchDownloader( F function,Logger& logger,U fu,E err,int id )
+template< typename F,typename U,typename E,typename L >
+auto make_loggerBatchDownloader( F function,Logger& logger,U fu,E err,int id,const L& logs )
 {
-	using lbd = loggerBatchDownloader< F,U,E > ;
+	using lbd = loggerBatchDownloader< F,U,E,L > ;
 
-	return lbd( std::move( function ),logger,std::move( fu ),std::move( err ),id ) ;
+	return lbd( std::move( function ),logger,std::move( fu ),std::move( err ),id,logs ) ;
 }
 
-template< typename AddToTable,typename TableWidget,typename Error >
+template< typename AddToTable,typename TableWidget,typename Error,typename L >
 class loggerPlaylistDownloader
 {
 public:
-	loggerPlaylistDownloader( TableWidget& t,Logger& logger,int id,AddToTable add,Error error ) :
+	loggerPlaylistDownloader( TableWidget& t,
+				  Logger& logger,
+				  int id,
+				  AddToTable add,
+				  Error error,
+				  const L& logs ) :
 		m_table( t ),
 		m_logger( logger ),
-		m_localLogger( false ),
+		m_localLogger( false,logs ),
 		m_id( id ),
 		m_addToTable( std::move( add ) ),
 		m_error( std::move( error ) )
 	{
 	}
-	loggerPlaylistDownloader< AddToTable,TableWidget,Error > move()
+	loggerPlaylistDownloader< AddToTable,TableWidget,Error,L > move()
 	{
 		return std::move( *this ) ;
 	}
@@ -717,7 +945,7 @@ public:
 	{
 		m_logger.add( function,m_id ) ;
 		function( m_localLogger,m_id,false ) ;
-		m_addToTable( m_table,m_localLogger ) ;
+		m_addToTable( m_localLogger ) ;
 	}
 	void registerDone()
 	{
@@ -730,6 +958,10 @@ public:
 			m_logger.logError( data,m_id ) ;
 		}
 	}
+	const std::vector< QByteArray >& fileNames()
+	{
+		return m_localLogger.fileNames() ;
+	}
 private:
 	TableWidget& m_table ;
 	Logger& m_logger ;
@@ -739,11 +971,16 @@ private:
 	Error m_error ;
 };
 
-template< typename AddToTable,typename TableWidget,typename Error >
-auto make_loggerPlaylistDownloader( TableWidget& t,Logger& logger,int id,AddToTable add,Error err )
+template< typename AddToTable,typename TableWidget,typename Error,typename L >
+auto make_loggerPlaylistDownloader( TableWidget& t,
+				    Logger& logger,
+				    int id,
+				    AddToTable add,
+				    Error err,
+				    const L& logs )
 {
-	using lpd = loggerPlaylistDownloader< AddToTable,TableWidget,Error > ;
+	using lpd = loggerPlaylistDownloader< AddToTable,TableWidget,Error,L > ;
 
-	return lpd( t,logger,id,std::move( add ),std::move( err ) ) ;
+	return lpd( t,logger,id,std::move( add ),std::move( err ),logs ) ;
 }
 #endif

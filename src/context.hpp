@@ -62,7 +62,8 @@ private:
 	WId m_value ;
 } ;
 
-class Context{
+class Context
+{
 public:
 	Context( settings& s,
 		 translator& t,
@@ -136,9 +137,9 @@ public:
 	{
 		return m_printOutput ;
 	}
-	void debug( const QByteArray& e ) const
+	void debug( int id,const QByteArray& e ) const
 	{
-		m_printOutput( e ) ;
+		m_printOutput( id,e ) ;
 	}
 	const QString& appName() const
 	{
@@ -146,11 +147,11 @@ public:
 	}
 	void setNetworkProxy( engines::proxySettings e,bool s )
 	{
-		m_engines.setNetworkProxy( e.move(),s ) ;
+		m_engines.setNetworkProxy( e.move(),s,m_networkAccess ) ;
 	}
 	void setNetworkProxy( bool s )
 	{
-		m_engines.setNetworkProxy( {},s ) ;
+		m_engines.setNetworkProxy( {},s,m_networkAccess ) ;
 	}
 private:
 	settings& m_settings ;

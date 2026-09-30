@@ -231,3 +231,273 @@ Version 1.2.0(April 1st, 2021)
       - Add ability show entries in the library tab in various orders.
       - Add ability to filter and sort media list to easily choose which ones to download.
       - Rework UI options that control checking for updates and autodownloads at startup.
+
+  Version 4.3.0(February 1st, 2024)
+      [Windows]
+      - Automatic updates of Media Downloader can now be configured to track git updates. Look for
+        option named "WindowsUpdateChannel" in the config file and change its value to "git" to start
+        monitoring git channel. Change the value back to "release" to go back to monitoring release channel.
+      [All]
+      - Fix a bug that causes a crash when trying to be clever with certain user provided yt-dlp options.
+
+  Version 4.3.1(February 1st, 2024)
+      - Hot fix release so just repeating changelong for version 4.3.0.
+      [Windows]
+      - Automatic updates of Media Downloader can now be configured to track git updates. Look for
+        option named "WindowsUpdateChannel" in the config file and change its value to "git" to start
+        monitoring git channel. Change the value back to "release" to go back to monitoring release channel.
+      [All]
+      - Fix a bug that causes a crash when trying to be clever with certain user provided yt-dlp options.
+
+  Version 4.4.0(March 3rd, 2024)
+      [Windows]
+     - Fix a bug that caused Media Downloader to not show progress report when file names contained invalid
+       json character.
+      [All]
+     - Add a boolean config only option named  "DeleteFilesOnCanceledDownload" to delete temporary files
+        when download is cancelled.
+     - Add a file size colum in "media options" table to easily show media file sizes.
+     - Now buildable with Qt6. Pass "-DBUILD_WITH_QT6=TRUE" option to cmake to build for Qt6.
+
+  Version 4.5.0(April 1st, 2024)
+      [All]
+     - Support internal downloading and updating svtplay.
+     - "Show media Options" menu now has a context menu with a list of video players you can use for
+        streaming a media instead of downloading it.
+     - Its now possible to select random entries in batch and playlist downloader tabs and batch download
+      only those selected.
+
+     Version 4.6.0(May 3rd, 2024)
+     [Windows]
+     - Update bundled ffmpeg to version 7. Unistall first Media Downloader before updating to this version
+       because some ffmpeg files are named differently causing older files to not be removed.
+      [All]
+     - Add config only for now options to show desktop notification when a download is complete. To get a
+       desktop notification when a download is complete, add option
+       "DesktopNotifyOnDownloadComplete=true" to the config file. To get a desktop notification when all
+       downloads complete, add option "DesktopNotifyOnAllDownloadComplete" to the config file.
+    - Add support for "--playlist-reverse" yt-dlp option. Media Downloader need to simulate yt-dlp playlist options
+      because it manages the playlist itsef.
+
+     Version 4.7.0(May 24, 2024)
+      [All]
+    - Add Arabic translations.
+    - Add support for MacOS.
+
+     Version 4.8.0(July 3rd, 2024)
+         [All]
+    - Add Korean translations.
+    - Fix a bug that prevented you-get from getting auto updated caused by upstream change.
+    - Add ability to edit in place engine's default options.
+    - Add ability to sort comments by likes or date.
+
+     Version 4.9.0(August 1st, 2024)
+         [All]
+    - Fix a bug in basic downloader tab that shows up with latest version of yt-dlp.
+    - Add improvements to Lux backend.
+
+
+     Version 5.0.0(August 16th, 2024)
+         [Linux]
+         - Add support for flatpak and a flatpak package is hosted at
+           flathub(https://flathub.org/apps/io.github.mhogomchungu.media-downloader).
+         [All]
+         - Various bug fixes and improvements.
+
+     Version 5.0.1(August 20th, 2024)
+         [All]
+         - Use blue icons when a dark theme is in use.
+         [Flatpak]
+         - Use ~/Downloads folder as default download folder.
+
+     Version 5.1.0(September 5th, 2024)
+         [All]
+         - Add ability to rename downloaded media in the batch downloader tab.
+         - Add ability to rename entries in the library tab.
+         - Add ability to play downloaded media in the basic downloader tab.
+         - Add ability to edit preset options.
+         - Ask for confirmation before deleting entries in the library tab.
+         - Fix a bug that caused Qt based external tools to be affected by the app's scalling factor.
+
+     Version 5.2.0(November 4th, 2024)
+         [Windows]
+         - Use yt-dlp from "https://github.com/nicolaasjan/yt-dlp" when using windows7.
+         [All]
+        - Add a context menu in the batch downloader tab to hide/show UI controls to make visible more entries to be downloaded.
+        - When application starts, put it on the screen where it was when it was last closed.
+
+     Version 5.2.1(January 31st, 2025)
+         [ALL]
+        - Maintanance release.
+         [Flatpak]
+        - Update KDE runtime from version 6.7 to version 6.8.
+
+     Version 5.2.2(February 8th, 2025)
+         [ALL]
+        - Many Urls can now be added in batch downloader's Url's text field without hanging the application.
+        - Update Brazilian Portuguese translations.
+         [Windows Qt6 build]
+        - Checkbox in batch downloader tab to monitor for clipboard contents now works.
+
+     Version 5.3.0(March 1st, 2025)
+         [Windows]
+        - File names in batch and playlist downloader show up correctly when they
+           contain some non ascii characters.
+         [ALL]
+        - Add Greek translations.
+        - Add a GUI way to set yt-dlp and gallery-dl option of "--cookies-from-browser".
+
+     Version 5.3.1(Match 11th, 2025)
+     [ALL]
+        - Fix a crash when using gallery-dl
+        - Add a menu in configure tab to install a short list of supported extensions.
+        - Rearrage configure->general tab to make it friendly to translations.
+        - Add a platform default theme and a light theme options.
+        - Make it possible in the UI to choose between setting a browser name or setting a path to a cookie file.
+
+     Version 5.3.2(Match 24th, 2025)
+     [MAC]
+        - Make gallery-dl work out of the box.
+     [ALL]
+        - BUG fix: Download progress on the title bar shows again when downloading from batch downloader tab.
+
+     Version 5.3.3(May 21st, 2025)
+     [ALL]
+        - Playlist downloader tab now says why populating playlist was stopped when using "--break-on-existing".
+        - Fix a bug on batch downloader tab that may lead to a crash when fetching metadata.
+
+     Version 5.4.0(May 29th, 2025)
+     [ALL]
+        - Fix a bug introduced in 5.3.3 that causes entries in batch downloader tab to start downloading when added because of using a wrong config only option.
+        - Add an "Extension" sub tab in configure tab to expose more config only options in "General" sub tab.
+
+     Version 5.4.1(July 11th, 2025)
+     [Flatpak]
+       - Make it possible to specifically call VLC to stream media(needs org.freedesktop.Flatpak permission).
+     [WINDOWS]
+       - Fix a bug caused by yt-dlp executable name change for 32 bit windows 7.
+     [ALL]
+       - Add Bulgarian translations.
+       - EXPERIMENTAL support for Gallery-dl working in Playlist tab.
+       - Add ability to show thumbnails in batch downloader tab when using gallery-dl.
+       - It is now possible to start downloading while the playlist tab is getting filled with entries.
+       - It is now possible to do simultaneous downloading from all three tabs that can do downloading.
+       - It is now possible to send multiple urls to VLC for streaming. This is useful for example
+         when you want to stream a media that is made up of a video only stream and an audio only stream.
+
+     Version 5.4.2(August 1st, 2025)
+     [ALL]
+       - Maintanance release that fixes various issues.
+
+     Version 5.4.3(October 1st, 2025)
+     [WINDOWS]
+       - Update ffmpeg to version 8.0.
+     [ALL]
+       - Add Ukranian translations.
+       - Various fixes and improvements.
+
+     Version 5.4.4(November 12th, 2025)
+     [ALL]
+       - Add support for autodownloading deno javascript runtime.
+
+     Version 5.4.5(November 15th, 2025)
+     [ALL]
+       - Various fixes and improvements.
+     [WINDOWS]
+       - Default to quickjs javascript runtime on windows7 because deno does not work in windows7.
+     [Flatpak]
+       - Default to quickjs javascript runtime because deno crashes.
+     [Linux and MacOS]
+       - Default to bsdtar and fall back to unzip when unzipping .zip files.
+
+     Version 5.4.6(November 17th, 2025)
+     [ALL]
+      - Update French translations.
+      - Update Greek translations.
+     [Flatpak]
+      - Fix a bug that cause yt-dlp specific options to be set when using other engines.
+     [Gallery-dl]
+      - Fix a bug that caused downloaded files to be under "directlink" subfolder under certain circumstances.
+
+     Version 5.4.7(January 13th, 2026)
+     [ALL]
+      - Maintanance Release.
+
+     Version 5.4.8(January 21th, 2026)
+     [ALL]
+      - Update Chinese translations.
+     [WINDOWS7]
+      - Fix a bug that caused a wrong yt-dlp binary to be downloaded and used.
+
+     Version 5.4.9(March 6th, 2026)
+     [ALL]
+      - Add Ui option to disable deno auto updating.
+      - Add a Ui way to change Ui scale factor.
+      - Workout a bug in deno 2.7.0 that prevented MD from updating it.
+
+     Version 5.5.0(March 14th, 2026)
+     [FLATPAK]
+      - Bundle svtplay-dl because its dependencies are now bundled too.
+     [ALL]
+      - Show more info in batch downloader when using svtplay-dl.
+
+     Version 5.5.1(April 14th, 2026)
+     [FLATPAK]
+      - Continue to bundle svtplay-dl dependencies but unbundle svtplay-dl executable.
+     [ALL]
+      - Add GUI options to tell MD to use system binaries or to download its own binaries.
+
+     Version 5.5.2(April 23rd, 2026)
+     [ALL]
+      - Fix a bug that made it impossible to update Deno from within the application.
+      - When showing a list of available media, show audio language below format code if it is available.
+
+     Version 5.6.0(April 30th, 2026)
+     [ALL]
+      - Fix galley-dl update bug caused by upstream change of repository url.
+
+      Version 5.6.1(May 18th, 2026)
+     [WINDOWS]
+      - Bundle wget2 in Qt6 build.
+     [ALL]
+      - Add "yt-dlp-nightly" extension to make it possible to use yt-dlp nightly version.
+      - Improve support for wget2.
+
+      Version 5.6.2(June 1st, 2026)
+     [WINDOWS 7]
+      - Use quickjs-ng instead of quickjs as yt-dlp javascript runtime.
+     [FLATPAK]
+      - Use quickjs-ng instead of quickjs as yt-dlp javascript runtime.
+     [ALL]
+      - Add "MediaDownloaderAppDataPath" environment variable to make it
+        possible to change the default location of application data folder.
+      - Various changes and improvements.
+
+      Version 5.6.3(June 18th, 2026)
+     [WINDOWS 7]
+      - Fix a bug that causes quickjs-ng to not be detected.
+     [WINDOWS]
+      - Show more info when showing download progress when updating MD.
+     [MACOS]
+      - Save new preset options as soon as user press "save" button.
+
+     Version 5.6.4(August 2nd, 2026)
+     [ALL]
+      - Update Ukranian language.
+      - Fix a bug that diables deno auto updating option when the save button is clicked.
+
+      Version 5.6.5(August 7th, 2026)
+     [ALL]
+      - Fix preset youtube options not working caused by youtube videos not having typical video dimensions.
+
+      Version 5.6.6(September 9th, 2026)
+     [ALL]
+      - Add ability to save and view download history.
+      - Fix a breaking change in how to call deno to get its version.
+
+      Version 5.6.7(UNRELEASED)
+     [WINDOWS]
+      - Unbandle ffmpeg and install it on first run. Version 9.0.2
+        will be installed if Windows version is atleast version 10 22H2
+        and Version 8.1 will be installed otherwise.
+      - Qt6 build installer now Defaults to use "C:\Program Files" instead of "C:\Progran Files (x86)".

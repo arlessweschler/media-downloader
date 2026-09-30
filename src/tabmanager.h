@@ -52,6 +52,7 @@ public:
 	tabManager& resetMenu() ;
 	tabManager& reTranslateUi() ;
 	tabManager& exiting() ;
+	void keyPressed( utility::mainWindowKeyCombo ) ;
 	basicdownloader& basicDownloader()
 	{
 		return m_basicdownloader ;
@@ -72,13 +73,21 @@ public:
 	{
 		return m_uiEnabled ;
 	}
+	const Context& ctx()
+	{
+		return m_ctx ;
+	}
+	void textAlignmentChanged( Qt::LayoutDirection ) ;
 	void init_done() ;
 	void setProxy( const settings::proxySettings&,const settings::proxySettings::type& ) ;
 private:
+	void initDone() ;
+	bool m_initDoneNotCalled = true ;
 	void clipboardEvent( QClipboard::Mode ) ;
 	void mainThreadClipboardHandler() ;
 	void bgThreadClipboardHandler() ;
 	QClipboard * m_clipboard ;
+	bool m_firstTimeSettingProxy = true ;
 	bool m_firstTime = true ;
 	int m_currentTab ;
 	bool m_uiEnabled = true ;

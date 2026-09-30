@@ -35,49 +35,25 @@ class configure : public QObject
 public:
 	static QString defaultDownloadOption() ;
 	configure( const Context& ) ;
+	void keyPressed( utility::mainWindowKeyCombo ) ;
 	void init_done() ;
 	void enableAll() ;
+	void textAlignmentChanged( Qt::LayoutDirection ) ;
 	void disableAll() ;
 	void resetMenu() ;
 	void exiting() ;
 	void retranslateUi() ;
+	void setUpdateMenu() ;
 	void downloadFromGitHub( const engines::Iterator& ) ;
 	void tabEntered() ;
 	void tabExited() ;
+	void updateExtensionsRemoveList() ;
+	void setVisibilityEditConfigFeature( bool ) ;
 	void updateEnginesList( const QStringList& e ) ;
 	QString engineDefaultDownloadOptions( const QString& ) ;
-	template< typename Function >
-	void engineDefaultDownloadOptions( const QString& engineName,Function function )
-	{
-		QStringList options ;
-
-		using mm = configure::downloadDefaultOptions::optsEngines ;
-
-		m_downloadEngineDefaultOptions.forEach( [ & ]( const mm& opts,const QJsonObject& ){
-
-			if( opts.engine == engineName ){
-
-				options.append( opts.options ) ;
-			}
-
-			return false ;
-		} ) ;
-
-		QMenu m ;
-
-		for( const auto& it : options ){
-
-			m.addAction( it ) ;
-		}
-
-		connect( &m,&QMenu::triggered,[ &function ]( QAction * ac ){
-
-			function( ac->text() ) ;
-		} ) ;
-
-		m.exec( QCursor::pos() ) ;
-	}
+	void engineSetDefaultDownloadOptions( const engines::engine& ) ;
 	QString optionsTranslated( const QString& ) ;
+	QString getEngineNameFromUrlManager( const QString& ) ;
 	void setDownloadOptions( int row,tableWidget& table ) ;
 	struct presetEntry
 	{
@@ -85,6 +61,7 @@ public:
 		const QString& uiName ;
 		const QString& options ;
 		const QString& website ;
+		QString websiteTranslated ;
 		QString uiNameTranslated ;
 	} ;
 	template< typename Function >
@@ -97,7 +74,7 @@ private:
 	{
 	public:
 		presetOptions( const Context&,settings& ) ;
-		~presetOptions() ;
+		void save() ;
 		void clear() ;
 		void setDefaults() ;
 		QString optionsTranslated( const QString& ) ;
@@ -132,29 +109,103 @@ private:
 	public:
 		struct opts
 		{
-			const QString& comparator ;
 			const QString& downloadOptions ;
 			const QString& engine ;
 			const QString& url ;
 		} ;
-		struct optsEngines
+		class qOpts
 		{
-			const QString& inuse ;
-			const QString& engine ;
-			const QString& options ;
+		public:
+			qOpts( QJsonObject e ) : m_qJsonObject( std::move( e ) )
+			{
+			}
+			qOpts( const QJsonArray& e,int m ) :
+				m_qJsonObject( e[ m ].toObject() )
+			{
+			}
+			QString engineName() const
+			{
+				return this->engineName( this->toJson() ) ;
+			}
+			QString opts() const
+			{
+				return this->options( this->toJson() ) ;
+			}
+			bool inUse() const
+			{
+				return this->inUse( this->toJson() ) ;
+			}
+			const char * inUseStr() const
+			{
+				return this->inUse() ? "yes" : "no" ;
+			}
+			const QJsonObject& toJson() const
+			{
+				return m_qJsonObject ;
+			}
+			QJsonObject setAsDefault( const QString& e ) const
+			{
+				auto o = this->toJson() ;
+
+				o.insert( "engineName",this->engineName() ) ;
+				o.insert( "options",this->opts() ) ;
+				o.insert( "default",e ) ;
+
+				return o ;
+			}
+			QJsonObject replaceOptions( const QString& e ) const
+			{
+				auto o = this->toJson() ;
+
+				o.insert( "engineName",this->engineName() ) ;
+				o.insert( "options",e ) ;
+				o.insert( "default",this->inUseStr() ) ;
+
+				return o ;
+			}
+			static qOpts obj( const QString& options,const QString& engineName )
+			{
+				QJsonObject obj ;
+
+				obj.insert( "default","yes" ) ;
+				obj.insert( "options",options ) ;
+				obj.insert( "engineName",engineName ) ;
+
+				return obj ;
+			}
+			static QString engineName( const QJsonObject& m )
+			{
+				return m.value( "engineName" ).toString() ;
+			}
+			static QString options( const QJsonObject& m )
+			{
+				return m.value( "options" ).toString() ;
+			}
+			static bool inUse( const QJsonObject& m )
+			{
+				return m.value( "default" ).toString() == "yes" ;
+			}
+			qOpts move()
+			{
+				return std::move( *this ) ;
+			}
+		private:
+			QJsonObject m_qJsonObject ;
 		} ;
 		downloadDefaultOptions( const Context&,const QString& ) ;
 		void save() ;
 		bool isEmpty( const QString& ) ;
-		QJsonObject addOpt( const QString&,const QString& engineName,const QString& options ) ;
+		void replace( const QString& engineName,const QString& oldOptions,const QString& newOptions ) ;
+		QJsonObject addOpt( const QString& engineName,const QString& options ) ;
 		QJsonObject add( const QString& url,const QString& opts,const QString& engineName ) ;
 		QJsonObject add( const configure::downloadDefaultOptions::opts& ) ;
 		void remove( const QJsonObject& ) ;
+		void removeDownloadDefaultOptions( const QJsonObject& ) ;
 		void removeAll( const QString& ) ;
-		QJsonObject setAsDefault( const QJsonObject& ) ;
+		void setAsDefault( const QJsonObject& ) ;
 
 		template< typename Function,
-			  typename std::enable_if<std::is_same<util::types::result_of<Function,const configure::downloadDefaultOptions::optsEngines&,QJsonObject>,bool>::value,int >::type = 0 >
+			  typename std::enable_if<std::is_same<util::types::result_of<Function,qOpts>,bool>::value,int >::type = 0 >
 		void forEach( const Function& function )
 		{
 			for( const auto& it : util::asConst( m_array ) ){
@@ -163,11 +214,7 @@ private:
 
 				if( !obj.isEmpty() ){
 
-					auto a = obj.value( "default" ).toString() ;
-					auto b = obj.value( "engineName" ).toString() ;
-					auto c = obj.value( "options" ).toString() ;
-
-					if( function( { a,b,c },std::move( obj ) ) ){
+					if( function( std::move( obj ) ) ){
 
 						break ;
 					}
@@ -185,17 +232,69 @@ private:
 
 				if( !obj.isEmpty() ){
 
-					auto a = obj.value( "comparator" ).toString() ;
-					auto b = obj.value( "downloadOption" ).toString() ;
-					auto c = obj.value( "engine" ).toString() ;
-					auto d = obj.value( "url" ).toString() ;
+					auto a = obj.value( "downloadOption" ).toString() ;
+					auto b = obj.value( "engine" ).toString() ;
+					auto c = obj.value( "url" ).toString() ;
 
-					if( function( { a,b,c,d },std::move( obj ) ) ){
+					if( function( { a,b,c },std::move( obj ) ) ){
 
 						break ;
 					}
 				}
 			}
+		}
+		class urlType
+		{
+		public:
+			enum class type{ contain = 1,startsWith = 2,endsWith = 3 } ;
+			urlType( const QString& ) ;
+			type getType() const
+			{
+				return m_type ;
+			}
+			QString getUrl() const
+			{
+				return m_url ;
+			}
+		private:
+			type m_type ;
+			QString m_url ;
+		} ;
+		QString engineNameFromUrl( const QString& u )
+		{
+			QString engineName ;
+
+			this->forEach( [ & ]( const opts& e,const QJsonObject& ){
+
+				urlType uu( e.url ) ;
+
+				auto t = uu.getType() ;
+
+				const auto& url = uu.getUrl() ;
+
+				if( t == urlType::type::startsWith && u.startsWith( url ) ){
+
+					engineName = e.engine ;
+
+					return true ;
+
+				}else if( t == urlType::type::endsWith && u.endsWith( url ) ){
+
+					engineName = e.engine ;
+
+					return true ;
+
+				}else if( t == urlType::type::contain && u.contains( url ) ){
+
+					engineName = e.engine ;
+
+					return true ;
+				}else {
+					return false ;
+				}
+			} ) ;
+
+			return engineName ;
 		}
 		void setDownloadOptions( int row,tableWidget& table )
 		{
@@ -203,15 +302,17 @@ private:
 
 				const auto& rowUrl = table.url( row ) ;
 
-				const auto& cmp = e.comparator ;
-				const auto& url = e.url ;
+				urlType uu( e.url ) ;
+
+				auto t          = uu.getType() ;
+				const auto& url = uu.getUrl() ;
 				const auto& eng = e.engine ;
 				const auto& opt = e.downloadOptions ;
 
 				auto dlo = tableWidget::type::DownloadOptions ;
 				auto en  = tableWidget::type::EngineName ;
 
-				if( cmp == "contains" && rowUrl.contains( url ) ){
+				if( t == urlType::type::contain && rowUrl.contains( url ) ){
 
 					if( !opt.isEmpty() ){
 
@@ -225,7 +326,7 @@ private:
 
 					return true ;
 
-				}else if( cmp == "startsWith" && rowUrl.startsWith( url ) ){
+				}else if( t == urlType::type::startsWith && rowUrl.startsWith( url ) ){
 
 					if( !opt.isEmpty() ){
 
@@ -239,7 +340,7 @@ private:
 
 					return true ;
 
-				}else if( cmp == "endsWith" && rowUrl.endsWith( url ) ){
+				}else if( t == urlType::type::endsWith && rowUrl.endsWith( url ) ){
 
 					if( !opt.isEmpty() ){
 
@@ -262,13 +363,21 @@ private:
 		QJsonArray m_array ;
 	};
 
+	QMenu * addExtenion() ;
+	QMenu * removeExtenion() ;
+	void addEngine( const QByteArray&,const QString& ) ;
 	void saveOptions() ;
 	enum class engineOptions{ url,options,both } ;
 	void setEngineOptions( const QString&,engineOptions ) ;
 	void savePresetOptions() ;
 	void showOptions() ;
-	void populateOptionsTable( const engines::engine& ) ;
+	void populateOptionsTable( const engines::engine&,int = -1 ) ;
 	void updateProxySettings( settings::proxySettings::Type ) ;
+	void confirmResetMakeVisible( bool ) ;
+	void setCookieSourceLabel( bool ) ;
+	void addAction( QMenu *,const Context&,const QString&,const QString& ) ;
+	void downloadExtension( const QString& ) ;
+	QString setUrl( const QString& e );
 	const Context& m_ctx ;
 	settings& m_settings ;
 	Ui::MainWindow& m_ui ;
@@ -276,13 +385,35 @@ private:
 	tabManager& m_tabManager ;
 	engines& m_engines ;
 
-	tableMiniWidget< QString > m_tablePresetOptions ;
-	tableMiniWidget< QJsonObject > m_tableUrlToDefaultEngine ;
-	tableMiniWidget< QJsonObject > m_tableDefaultDownloadOptions ;
+	class String
+	{
+	public:
+		String()
+		{
+		}
+		String( QString e ) : m_string( std::move( e ) )
+		{
+		}
+		const QString& value() const
+		{
+			return m_string ;
+		}
+		QString& value()
+		{
+			return m_string ;
+		}
+	private:
+		QString m_string ;
+	};
+
+	tableMiniWidget< String,3 > m_tablePresetOptions ;
+	tableMiniWidget< QJsonObject,2 > m_tableUrlToDefaultEngine ;
+	tableMiniWidget< QJsonObject,2 > m_tableDefaultDownloadOptions ;
 	QMenu m_menu ;
 	presetOptions m_presetOptions ;
 	downloadDefaultOptions m_downloadDefaultOptions ;
 	downloadDefaultOptions m_downloadEngineDefaultOptions ;
+	bool m_scaleButtonPressed = false ;
 };
 
 #endif

@@ -23,7 +23,7 @@
 
 #include "settings.h"
 #include "context.hpp"
-#include "downloadmanager.hpp"
+#include "reportFinished.h"
 #include "tableWidget.h"
 
 class tabManager ;
@@ -79,6 +79,7 @@ class playlistdownloader : public QObject
         Q_OBJECT
 public:
 	playlistdownloader( Context& ) ;
+	void keyPressed( utility::mainWindowKeyCombo ) ;
 	void init_done() ;
 	void enableAll() ;
 	void disableAll() ;
@@ -87,14 +88,22 @@ public:
 	void tabEntered() ;
 	void tabExited() ;
 	void exiting() ;
-	void gotEvent( const QJsonObject& ) ;
+	void saveData() ;
+	void textAlignmentChanged( Qt::LayoutDirection ) ;
+	void gotEvent( const utility::event& ) ;
 	void updateEnginesList( const QStringList& ) ;
 	void clipboardData( const QString& ) ;
-private slots:
+private:
+signals:
+	void networkDataSignal( utility::networkReply ) ;
+	void addTextToUiSignal( const QByteArray&,int ) ;
+	void reportFinishedStatusSignal( const reportFinished&,const std::vector< QByteArray >& ) ;
+private:
+	void reportFinishedStatus( const reportFinished&,const std::vector< QByteArray >& ) ;
 	void networkData( utility::networkReply ) ;
 	void addTextToUi( const QByteArray&,int ) ;
-	void reportFinishedStatus( const reportFinished& ) ;
-private:
+	void setThumbnail( const std::vector< QByteArray >&,const engines::engine& engine,int ) ;
+
 	enum class size{ small,large,toggle } ;
 	void resizeTable( playlistdownloader::size ) ;
 	QString defaultEngineName() ;
@@ -103,23 +112,11 @@ private:
 	void customContextMenuRequested() ;
 	void plSubscription() ;
 
-	struct networkCtx
-	{
-		utility::MediaEntry media ;
-		int id ;
-		tableWidget& table ;
-		networkCtx move()
-		{
-			return std::move( *this ) ;
-		}
-	} ;
+	void networkResult( utility::MediaEntry,const utils::network::reply& ) ;
 
-	void networkResult( networkCtx,const utils::network::reply& ) ;
-
-	void download() ;	
-	void download( const engines::engine&,downloadManager::index ) ;
+	void download() ;
 	void download( const engines::engine& ) ;
-	void download( const engines::engine&,int ) ;
+	void downloadRecursively( const engines::engine&,int,bool ) ;
 
 	void showBanner() ;
 	void clearScreen() ;
@@ -131,101 +128,83 @@ private:
 	QWidget& m_mainWindow ;
 	tabManager& m_tabManager ;
 	tableWidget m_table ;
-	tableMiniWidget< int > m_subscriptionTable ;
+	tableMiniWidget< int,2 > m_subscriptionTable ;
 	bool m_gettingPlaylist = false ;
 	bool m_showThumbnails ;
-	bool m_autoDownload ;
 	bool m_stoppedOnExisting ;
 	bool m_dataReceived ;
 
 	int m_networkRunning = 0 ;
-	int m_downloaderId = -1 ;
-
-	downloadManager m_ccmd ;
 
 	utility::Terminator m_terminator ;
 
 	QPixmap m_defaultVideoThumbnailIcon ;
+	QPixmap m_defaultErrorVideoThumbnailIcon ;
 
-	class customOptions
-	{
-	public:
-		customOptions( QStringList&& opts,
-			       const QString& downloadArchivePath,
-			       const engines::engine& engine,
-			       const Context& ctx ) ;
-		const QStringList& options() const
-		{
-			return m_options ;
-		}
-		int maxMediaLength() const
-		{
-			return engines::engine::functions::timer::toSeconds( m_maxMediaLength ) ;
-		}
-		int minMediaLength() const
-		{
-			return engines::engine::functions::timer::toSeconds( m_minMediaLength ) ;
-		}
-		bool contains( const QString& e ) const ;
-		bool breakOnExisting() const
-		{
-			return m_breakOnExisting ;
-		}
-		bool skipOnExisting() const
-		{
-			return m_skipOnExisting ;
-		}
-		customOptions move()
-		{
-			return std::move( *this ) ;
-		}
-	private:
-		bool m_breakOnExisting = false ;
-		bool m_skipOnExisting = false ;
-		QStringList m_options ;
-		QString m_maxMediaLength ;
-		QString m_minMediaLength ;
-		QByteArray m_archiveFileData ;
-	};
+	bool parseJson( const engines::engine&,const utility::archiveData&,utility::MediaEntry ) ;
 
-	bool parseJson( const playlistdownloader::customOptions&,
-			tableWidget& table,
-			utility::MediaEntry ) ;
-
-	void showEntry( tableWidget& table,tableWidget::entry e ) ;
+	void showEntry( tableWidget::entry,bool ) ;
 
 	class subscription
 	{
 	public:
-		subscription( const Context&,tableMiniWidget< int >&,QWidget& ) ;
+		subscription( const Context&,tableMiniWidget< int,2 >&,QWidget& ) ;
 		void add( const QString& uiName,const QString& url,const QString& Opts ) ;
 		void remove( int ) ;
 		void setVisible( bool ) ;
-		const QString& archivePath() const ;
-		struct entry
+		class entry
 		{
-			entry()
+		public :
+			entry( const QString& u ) : m_url( u )
 			{
 			}
-			entry( const QString& u ) : url( u )
+			entry( const QJsonArray& arr,int index )
 			{
+				this->set( arr[ index ].toObject() ) ;
 			}
-			entry( QString u,QString l,QString o ) :
-				uiName( std::move( u ) ),
-				url( std::move( l ) ),
-				getListOptions( std::move( o ) )
+			template< typename Iter >
+			entry( const Iter& it )
 			{
+				this->set( it.toObject() ) ;
 			}
-			QString uiName ;
-			QString url ;
-			QString getListOptions ;
-		};
+			const QString& UiName() const
+			{
+				return m_uiName ;
+			}
+			const QString& url() const
+			{
+				return m_url ;
+			}
+			const QString& options() const
+			{
+				return m_options ;
+			}
+			static QJsonObject toObject( const QString& uiName,const QString& url,const QString& Opts )
+			{
+				QJsonObject obj ;
+
+				obj.insert( "uiName",uiName ) ;
+				obj.insert( "url",url ) ;
+				obj.insert( "getListOptions",Opts ) ;
+
+				return obj ;
+			}
+		private :
+			void set( const QJsonObject& m )
+			{
+				m_uiName  = m.value( "uiName" ).toString() ;
+				m_url     = m.value( "url" ).toString() ;
+				m_options = m.value( "getListOptions" ).toString() ;
+			}
+			QString m_uiName ;
+			QString m_url ;
+			QString m_options ;
+		} ;
 		utility::vector< subscription::entry > entries() ;
 	private:
 		void save() ;
 		QString m_path ;
-		QString m_archivePath ;
-		tableMiniWidget< int >& m_table ;
+		tableMiniWidget< int,2 >& m_table ;
 		QWidget& m_ui ;
 		QJsonArray m_array ;
 	};
@@ -258,7 +237,7 @@ private:
 		QString m_txt ;
 		QString m_progress ;
 		qint64 m_time ;
-		engines::engine::functions::timer m_timer ;
+		engines::engine::baseEngine::timer m_timer ;
 	} ;
 
 	banner m_banner ;
@@ -266,7 +245,10 @@ private:
 	class stdError
 	{
 	public:
-		stdError( playlistdownloader::banner& banner ) : m_banner( banner )
+		stdError( playlistdownloader& parent,
+			  playlistdownloader::banner& banner,
+			  const engines::engine& e ) :
+			m_parent( parent ),m_banner( banner ),m_engine( e )
 		{
 		}
 		bool operator()( const QByteArray& e ) ;
@@ -275,24 +257,30 @@ private:
 			return std::move( *this ) ;
 		}
 	private:
+		playlistdownloader& m_parent ;
 		playlistdownloader::banner& m_banner ;
+		const engines::engine& m_engine ;
 	} ;
 
 	class stdOut
 	{
 	public:
-		stdOut( playlistdownloader& p,customOptions o ) :
-			m_parent( p ),m_customOptions( o.move() )
+		stdOut( playlistdownloader& p,utility::archiveData o,const engines::engine& e,const QString& url ) :
+			m_parent( p ),m_engine( e ),m_customOptions( o.move() ),m_url( url )
 		{
 		}
-		void operator()( tableWidget& table,Logger::Data& data ) ;
+		void operator()( Logger::Data& data ) ;
 		stdOut move()
 		{
 			return std::move( *this ) ;
 		}
 	private:
+		void parseYtDlpData( Logger::Data& ) ;
 		playlistdownloader& m_parent ;
-		playlistdownloader::customOptions m_customOptions ;
+		const engines::engine& m_engine ;
+		utility::archiveData m_customOptions ;
+		QByteArray m_data ;
+		QString m_url ;
 	} ;
 
 	class listIterator
@@ -312,15 +300,15 @@ private:
 		}
 		const QString& url() const
 		{
-			return m_list.back().url ;
+			return m_list.back().url() ;
 		}
 		const QString& uiName() const
 		{
-			return m_list.back().uiName ;
+			return m_list.back().UiName() ;
 		}
 		const QString& listOptions() const
 		{
-			return m_list.back().getListOptions ;
+			return m_list.back().options() ;
 		}
 		playlistdownloader::listIterator next()
 		{
@@ -336,9 +324,9 @@ private:
 		utility::vector< playlistdownloader::subscription::entry > m_list ;
 	} ;
 
-	void getListing( playlistdownloader::listIterator,const engines::engine& ) ;
-	void getList( playlistdownloader::listIterator,const engines::engine& ) ;
-	void getList( customOptions&&,const engines::engine&,listIterator ) ;
+	void getListing( playlistdownloader::listIterator,const engines::engine&,bool ) ;
+	void getList( playlistdownloader::listIterator,const engines::engine&,bool ) ;
+	void getList( const QString&,utility::archiveData,const engines::engine&,listIterator,bool ) ;
 
 	QByteArray m_jsonEndMarker = "0xdeadbeef>>MediaDownloaderEndMarker<<0xdeadbeef" ;
 	subscription m_subscription ;

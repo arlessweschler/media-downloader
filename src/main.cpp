@@ -20,7 +20,7 @@
 #include "mainwindow.h"
 #include "settings.h"
 #include "translator.h"
-#include "utility"
+#include "utility.h"
 #include "utils/single_instance.hpp"
 #include "engines/tests.h"
 
@@ -57,58 +57,73 @@ private:
 	MainWindow m_app ;
 };
 
-int main( int argc,char * argv[] )
+int start( int argc,char * argv[],
+	   const utility::cliArguments& cargs,
+	   engines::enginePaths& paths,
+	   settings& ss )
 {
-	utility::cliArguments cargs( argc,argv ) ;
-
-	if( utility::onlyWantedVersionInfo( cargs ) ){
-
-		return 0 ;
-	}
-
-	settings settings( cargs ) ;
-
-	engines::enginePaths paths( settings ) ;
-
-	if( utility::platformIsWindows() ){
-
-		if( utility::startedUpdatedVersion( settings,cargs ) ){
-
-			return 0 ;
-		}
-	}
-
 	QApplication mqApp( argc,argv ) ;
 
-	settings.setTheme( mqApp,paths.themePath() ) ;
+#if QT_VERSION >= QT_VERSION_CHECK( 5,7,0 )
+
+	if( utility::platformisFlatPak() ){
+
+		mqApp.setDesktopFileName( "io.github.mhogomchungu.media-downloader" ) ;
+	}else{
+		mqApp.setDesktopFileName( "media-downloader" ) ;
+	}
+#endif
+
+	ss.setTheme( mqApp,paths.themePath() ) ;
 
 	const auto& args = cargs.arguments() ;
 
 	if( tests::test_engine( args,mqApp ) ){
 
 		return 0 ;
-	}
-
-	auto spath = paths.socketPath() ;
-
-	QJsonObject jsonArgs ;
-
-	jsonArgs.insert( "-a",cargs.contains( "-a" ) ) ;
-
-	jsonArgs.insert( "-e",cargs.contains( "-e" ) ) ;
-
-	jsonArgs.insert( "-u",cargs.value( "-u" ) ) ;
-
-	jsonArgs.insert( "--proxy",cargs.value( "--proxy" ) ) ;
-
-	auto json = QJsonDocument( jsonArgs ).toJson( QJsonDocument::Indented ) ;
-
-	utils::app::appInfo< myApp,myApp::args > m( { mqApp,settings,paths,cargs },spath,mqApp,json ) ;
-
-	if( cargs.contains( "-s" ) || !settings.singleInstance() ){
-
-		return utils::app::runMultiInstances( std::move( m ) ) ;
 	}else{
-		return utils::app::runOneInstance( std::move( m ) ) ;
+		auto spath = paths.socketPath() ;
+
+		auto json = utility::event::toJson( cargs ) ;
+
+		myApp::args args{ mqApp,ss,paths,cargs } ;
+
+		utils::app::appInfo< myApp,myApp::args > m( args,spath,mqApp,json ) ;
+
+		if( cargs.contains( "-s" ) || !ss.singleInstance() ){
+
+			return utils::app::runMultiInstances( std::move( m ) ) ;
+		}else{
+			return utils::app::runOneInstance( std::move( m ) ) ;
+		}
+	}
+}
+
+int main( int argc,char * argv[] )
+{
+	utility::cliArguments cargs( argc,argv ) ;
+
+	utility::PretendPlatform pretendPlatform( cargs.arguments() ) ;
+
+	utility::setPlatForms( pretendPlatform ) ;
+
+	utility::SysPlatForm sysPlatform ;
+
+	utility::setPlatForms( sysPlatform ) ;
+
+	if( utility::onlyWantedVersionInfo( cargs ) ){
+
+		return 0 ;
+	}else{
+		settings ss( cargs ) ;
+
+		engines::enginePaths paths( ss ) ;
+
+		if( utility::startedUpdatedVersion( ss,cargs ) ){
+
+			return 0 ;
+		}else{
+			return start( argc,argv,cargs,paths,ss ) ;
+		}
 	}
 }

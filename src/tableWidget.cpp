@@ -19,7 +19,7 @@
 
 #include "tableWidget.h"
 #include "utility.h"
-#include "downloadmanager.hpp"
+#include "reportFinished.h"
 
 #include <QHeaderView>
 #include <QBuffer>
@@ -150,7 +150,7 @@ void tableWidget::setTableWidget( QTableWidget& table,const tableWidget::tableWi
 {
 	table.verticalHeader()->setSectionResizeMode( QHeaderView::ResizeToContents ) ;
 
-	table.verticalHeader()->setMinimumSectionSize( 30 ) ;
+	//table.verticalHeader()->setMinimumSectionSize( 30 ) ;
 
 	table.horizontalHeader()->setStretchLastSection( true ) ;
 
@@ -161,6 +161,60 @@ void tableWidget::setTableWidget( QTableWidget& table,const tableWidget::tableWi
 	table.setEditTriggers( s.editTrigger ) ;
 	table.setFocusPolicy( s.focusPolicy ) ;
 	table.setSelectionMode( s.selectionMode ) ;
+}
+
+QString tableWidget::makeClean( const QString& s )
+{
+	QString m ;
+
+	auto e = s.isEmpty() ? s : util::split( s,"\n" )[ 0 ] ;
+
+	for( int a = 0 ; a < e.size() ; a++ ){
+
+		auto c = e[ a ] ;
+
+		if( c == '-' ){
+
+			m.append( '.' ) ;
+
+		}else if( c >= '0' && c <= '9' ){
+
+			m.append( c ) ;
+		}
+	}
+
+	if( m.isEmpty() ){
+
+		m = "0" ;
+	}
+
+	return m ;
+}
+
+bool tableWidget::compare( const QString& a,const QString& b,bool ascending )
+{
+	bool aa ;
+	bool bb ;
+
+	auto aaa = tableWidget::makeClean( a ).toDouble( &aa ) ;
+	auto bbb = tableWidget::makeClean( b ).toDouble( &bb ) ;
+
+	if( ascending ){
+
+		if( aa && bb ){
+
+			return aaa < bbb ;
+		}else{
+			return a < b ;
+		}
+	}else{
+		if( aa && bb ){
+
+			return aaa > bbb ;
+		}else{
+			return a > b ;
+		}
+	}
 }
 
 void tableWidget::replace( tableWidget::entry e,int r,sizeHint s )
@@ -208,17 +262,33 @@ int tableWidget::addRow()
 
 int tableWidget::addItem( tableWidget::entry e,tableWidget::sizeHint s )
 {
-	m_items.emplace_back( e.move() ) ;
-
-	const auto& entry = m_items.back() ;
-
 	auto row = m_table.rowCount() ;
+
+	if( e.showFirst && row ){
+
+		auto m = m_items.begin() ;
+
+		if( m->banner ){
+
+			row = 1 ;
+
+			m_items.insert( m + 1,e.move() ) ;
+		}else{
+			row = 0 ;
+
+			m_items.insert( m,e.move() ) ;
+		}
+	}else{
+		m_items.emplace_back( e.move() ) ;
+	}
 
 	m_table.insertRow( row ) ;
 
+	const auto& entry = m_items[ row ] ;
+
 	auto label = new QLabel() ;
 	label->setAlignment( Qt::AlignHCenter | Qt::AlignVCenter ) ;
-	label ->setPixmap( entry.thumbnail ) ;
+	label->setPixmap( entry.thumbnail ) ;
 
 	m_table.setCellWidget( row,0,label ) ;
 
@@ -234,6 +304,48 @@ int tableWidget::addItem( tableWidget::entry e,tableWidget::sizeHint s )
 	m_table.setItem( row,1,item ) ;
 
 	return row ;
+}
+
+void tableWidget::setStateAsRunning( int row,bool runningRecursively )
+{
+	auto& m              = this->item( row ) ;
+	m.runningState       = reportFinished::finishedStatus::running() ;
+	m.runningRecursively = runningRecursively ;
+}
+
+void tableWidget::setRunningState( const QString& s,int row )
+{
+	auto& m              = this->item( row ) ;
+	m.runningState       = s ;
+	m.runningRecursively = false ;
+}
+
+bool tableWidget::isRunning( int row ) const
+{
+	return reportFinished::finishedStatus::isRunning( *this,row  ) ;
+}
+
+bool tableWidget::finishedWithSuccess( int row ) const
+{
+	return reportFinished::finishedStatus::finishedWithSuccess( *this,row ) ;
+}
+
+bool tableWidget::runningOrFinishedWithSuccess( int row ) const
+{
+	return this->isRunning( row ) || this->finishedWithSuccess( row ) ;
+}
+
+int tableWidget::nextAvailableEntryToDownload( int row ) const
+{
+	for( ; row < m_table.rowCount() ; row++ ){
+
+		if( !this->runningOrFinishedWithSuccess( row ) ){
+
+			return row ;
+		}
+	}
+
+	return -1 ;
 }
 
 void tableWidget::selectRow( QTableWidgetItem * current,QTableWidgetItem * previous,int firstColumnNumber )
@@ -270,7 +382,25 @@ void tableWidget::selectRow( QTableWidgetItem * current,QTableWidgetItem * previ
 			table->setCurrentCell( current->row(),table->columnCount() - 1 ) ;
 		}else{
 			_update_table_row( current,true ) ;
-			_update_table_row( previous,false ) ;
+
+			if( QGuiApplication::keyboardModifiers() != Qt::ControlModifier ){
+
+				auto currentRow = current->row() ;
+
+				auto table = current->tableWidget() ;
+
+				auto lastColumn = table->columnCount() - 1 ;
+
+				for( int row = 0 ; row < table->rowCount() ; row++ ){
+
+					if( row != currentRow ){
+
+						auto item = table->item( row,lastColumn ) ;
+
+						_update_table_row( item,false ) ;
+					}
+				}
+			}
 		}
 
 	}else if( current && !previous ){
@@ -310,6 +440,11 @@ int tableWidget::rowCount() const
 	return m_table.rowCount() ;
 }
 
+int tableWidget::columnCount() const
+{
+	return m_table.columnCount() ;
+}
+
 void tableWidget::selectLast()
 {
 	if( m_table.rowCount() > 0 ){
@@ -317,6 +452,11 @@ void tableWidget::selectLast()
 		m_table.setCurrentCell( m_table.rowCount() - 1,m_table.columnCount() - 1 ) ;
 		m_table.scrollToBottom() ;
 	}
+}
+
+void tableWidget::selectRow( int row )
+{
+	m_table.setCurrentCell( row,m_table.columnCount() - 1 ) ;
 }
 
 void tableWidget::setEnabled( bool e )
@@ -333,6 +473,14 @@ void tableWidget::removeRow( int s )
 {
 	m_table.removeRow( s ) ;
 	m_items.erase( m_items.begin() + s ) ;
+}
+
+void tableWidget::removeAllSelected()
+{
+	utility::removeAllSelected( m_table,[ this ]( int row ){
+
+		this->removeRow( row ) ;
+	} ) ;
 }
 
 void tableWidget::hideRow( int row )
@@ -366,16 +514,48 @@ void tableWidget::hideRow( int row )
 	}
 }
 
-bool tableWidget::isSelected( int row )
+bool tableWidget::isSelected( int row ) const
 {
 	return m_table.item( row,m_init )->isSelected() ;
+}
+
+std::vector< int > tableWidget::selectedRows() const
+{
+	std::vector< int > s ;
+
+	int m = m_table.rowCount() ;
+
+	for( int i = 0 ; i < m ; i++ ){
+
+		if( this->isSelected( i ) ){
+
+			s.emplace_back( i ) ;
+		}
+	}
+
+	return s ;
+}
+
+int tableWidget::numberCurrentlyRunning()
+{
+	int m = 0 ;
+
+	for( int i = 0 ; i < m_table.rowCount() ; i++ ){
+
+		if( reportFinished::finishedStatus::running( this->runningState( i ) ) ){
+
+			m++ ;
+		}
+	}
+
+	return m ;
 }
 
 bool tableWidget::noneAreRunning()
 {
 	for( int i = 0 ; i < m_table.rowCount() ; i++ ){
 
-		if( downloadManager::finishedStatus::running( this->runningState( i ) ) ){
+		if( reportFinished::finishedStatus::running( this->runningState( i ) ) ){
 
 			return false ;
 		}
@@ -387,6 +567,16 @@ bool tableWidget::noneAreRunning()
 bool tableWidget::rowIsVisible( int row )
 {
 	return !m_table.isRowHidden( row ) ;
+}
+
+bool tableWidget::isRowHidden( int row )
+{
+	return m_table.isRowHidden( row ) ;
+}
+
+bool tableWidget::rowIsSelected( int row )
+{
+	return m_table.item( row,m_table.columnCount() - 1 )->isSelected() ;
 }
 
 bool tableWidget::containsHiddenRows()
@@ -406,7 +596,7 @@ bool tableWidget::allFinishedWithSuccess()
 {
 	for( int i = 0 ; i < m_table.rowCount() ; i++ ){
 
-		if( !downloadManager::finishedStatus::finishedWithSuccess( this->runningState( i ) ) ){
+		if( !reportFinished::finishedStatus::finishedWithSuccess( this->runningState( i ) ) ){
 
 			return false ;
 		}
@@ -415,8 +605,24 @@ bool tableWidget::allFinishedWithSuccess()
 	return true ;
 }
 
+int tableWidget::finishWithSuccess()
+{
+	int m = 0 ;
+
+	for( int i = 0 ; i < m_table.rowCount() ; i++ ){
+
+		if( reportFinished::finishedStatus::finishedWithSuccess( this->runningState( i ) ) ){
+
+			m++ ;
+		}
+	}
+
+	return m ;
+}
+
 QString tableWidget::completeProgress( int firstRow )
 {
+	int running = 0 ;
 	int completed = 0 ;
 	int errored = 0 ;
 	int cancelled = 0 ;
@@ -429,39 +635,48 @@ QString tableWidget::completeProgress( int firstRow )
 
 		const auto& s = this->runningState( i ) ;
 
-		if( downloadManager::finishedStatus::notStarted( s ) ){
+		if( reportFinished::finishedStatus::running( s ) ){
+
+			running++ ;
+		}
+		if( reportFinished::finishedStatus::notStarted( s ) ){
 
 			notStarted++ ;
 		}
-		if( downloadManager::finishedStatus::finishedWithSuccess( s ) ){
+		if( reportFinished::finishedStatus::finishedWithSuccess( s ) ){
 
 			completed++ ;
 		}
-		if( downloadManager::finishedStatus::finishedWithError( s ) ){
+		if( reportFinished::finishedStatus::finishedWithError( s ) ){
 
 			errored++ ;
 		}
-		if( downloadManager::finishedStatus::finishedCancelled( s ) ){
+		if( reportFinished::finishedStatus::finishedCancelled( s ) ){
 
 			cancelled++ ;
 		}
 	}
 
-	auto a = QString::number( ( completed + errored + cancelled ) * 100 / rowCount ) ;
-	auto b = QString::number( notStarted ) ;
-	auto c = QString::number( completed ) ;
-	auto d = QString::number( errored ) ;
-	auto e = QString::number( cancelled ) ;
+	auto z = completed + errored + cancelled ;
+
+	auto m = QString::number( z ) + "/" + QString::number( rowCount ) ;
+
+	auto a = m + "(" + QString::number( z * 100 / rowCount ) + "%)" ;
+	auto b = QString::number( running ) ;
+	auto c = QString::number( notStarted ) ;
+	auto d = QString::number( completed ) ;
+	auto e = QString::number( errored ) ;
+	auto f = QString::number( cancelled ) ;
 
 	if( a.startsWith( "100" ) ){
 
 		a = "100" ;
 	}
 
-	return QObject::tr( "Completed: %1%, Not Started: %2, Succeeded: %3, Failed: %4, Cancelled: %5" ).arg( a,b,c,d,e ) ;
+	return QObject::tr( "Completed: %1, Running: %2, Not Started: %3, Succeeded: %4, Failed: %5, Cancelled: %6" ).arg( a,b,c,d,e,f ) ;
 }
 
-tableWidget::tableWidget( QTableWidget& t,const QFont&,int init,int tA ) :
+tableWidget::tableWidget( QTableWidget& t,const QFont&,int init,Qt::Alignment tA ) :
 	m_table( t ),
 	m_init( init ),
 	m_textAlignment( tA )
@@ -477,4 +692,30 @@ QTableWidgetItem& tableWidget::item( int row,int column ) const
 QTableWidget& tableWidget::get()
 {
 	return m_table ;
+}
+
+void tableWidget::setColumnNumbersTo( int m )
+{
+	while( m_table.columnCount() ){
+
+		m_table.removeColumn( 0 ) ;
+	}
+
+	for( int s = 0 ; s < m ; s++ ){
+
+		m_table.insertColumn( 0 ) ;
+	}
+}
+
+baseRemoveAllSelected::~baseRemoveAllSelected()
+{
+}
+
+void tableMiniWidgetRemoveAllSelected( QTableWidget& table,
+				       std::unique_ptr< baseRemoveAllSelected > function )
+{
+	utility::removeAllSelected( table,[ function = std::move( function ) ]( int row ){
+
+		( *function )( row ) ;
+	} ) ;
 }

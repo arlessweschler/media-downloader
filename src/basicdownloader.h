@@ -35,6 +35,7 @@ class basicdownloader : public QObject
 	Q_OBJECT
 public:
 	basicdownloader( const Context& ) ;
+	void keyPressed( utility::mainWindowKeyCombo ) ;
 	void init_done() ;
 	void tabEntered() ;
 	void tabExited() ;
@@ -42,7 +43,8 @@ public:
 	void enableAll() ;
 	void disableAll() ;
 	void exiting() ;
-	void gotEvent( const QJsonObject& e ) ;
+	void textAlignmentChanged( Qt::LayoutDirection ) ;
+	void gotEvent( const utility::event& ) ;
 	void resetMenu( const QStringList& = {} ) ;
 	void retranslateUi() ;
 	void updateEnginesList( const QStringList& ) ;
@@ -59,16 +61,16 @@ private:
 		int id ;
 	};
 
-	basicdownloader::engine defaultEngine() ;
+	basicdownloader::engine defaultEngine( const QString& url = {} ) ;
 
 	const Context& m_ctx ;
 	settings& m_settings ;
 	Ui::MainWindow& m_ui ;
 	tabManager& m_tabManager ;
-	tableMiniWidget< engines::engine::functions::mediaInfo > m_tableList ;
+	tableMiniWidget< engines::engine::baseEngine::mediaInfo,5 > m_tableList ;
 	QStringList m_optionsList ;
 	QTableWidget m_bogusTableOriginal ;
-	tableWidget m_bogusTable ;
+	tableWidget m_hiddenTable ;
 	utility::downLoadOptions m_extraOptions ;
 	utility::Terminator m_terminator ;
 
@@ -80,6 +82,7 @@ private:
 	void changeDefaultEngine( int index ) ;
 	void listRequested( const QByteArray&,int ) ;
 	void list() ;
+	void setContextMenuForDirectUrl() ;
 	void download( const basicdownloader::engine&,
 		       const utility::args&,
 		       const QString& urls,

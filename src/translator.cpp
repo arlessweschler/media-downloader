@@ -20,14 +20,19 @@
 #include "translator.h"
 #include "settings.h"
 #include "locale_path.h"
+#include "context.hpp"
+#include "tabmanager.h"
 
 #include <QCoreApplication>
 
-translator::translator( settings& s,QApplication& app ) : m_qapp( app ),m_settings( s )
+translator::translator( settings& s,QApplication& app ) :
+	m_qapp( app ),
+	m_settings( s ),
+	m_pathLanguageFiles( m_settings.localizationLanguagePath() )
 {
 	this->addString( QObject::tr( "Polish (Poland)" ),"Polish (Poland)","pl_PL" ) ;
 	this->addString( QObject::tr( "English (US)" ),"English (US)","en_US" ) ;
-	this->addString( QObject::tr( "Spanish (Spain)" ),"Spanish (Spain)","es" ) ;
+	this->addString( QObject::tr( "Spanish (Spain)" ),"Spanish (Spain)","es_ES" ) ;
 	this->addString( QObject::tr( "Chinese (China)" ),"Chinese (China)","zh_CN" ) ;
 	this->addString( QObject::tr( "Turkish (Turkey)" ),"Turkish (Turkey)","tr_TR" ) ;
 	this->addString( QObject::tr( "Russian (Russia)" ),"Russian (Russia)","ru_RU" ) ;
@@ -38,18 +43,45 @@ translator::translator( settings& s,QApplication& app ) : m_qapp( app ),m_settin
 	this->addString( QObject::tr( "German (Germany)" ),"German (Germany)","de_DE" ) ;
 	this->addString( QObject::tr( "Portuguese (Brazil)" ),"Portuguese (Brazil)","pt_BR" ) ;
 	this->addString( QObject::tr( "Dutch (Netherlands)" ),"Dutch (Netherlands)","nl_NL" ) ;
+	this->addString( QObject::tr( "Arabic" ),"Arabic","ar" ) ;
+	this->addString( QObject::tr( "Korean (Korea)" ),"Korean (Korea)","ko_KR" ) ;
+	this->addString( QObject::tr( "Greek (Greece)" ),"Greek (Greece)","el_GR" ) ;
+	this->addString( QObject::tr( "Bulgarien (Bulgaria)" ),"Bulgarien (Bulgaria)","bg_BG" ) ;
+	this->addString( QObject::tr( "Ukrainian (Ukraine)" ),"Ukrainian (Ukraine)","uk_UA" ) ;
+
+	this->setDefaultLanguage() ;
+}
+
+void translator::setContext( Context& ctx )
+{
+	m_ctx = &ctx ;
+
 	this->setDefaultLanguage() ;
 }
 
 void translator::setLanguage( const QString& e )
-{
+{	
+	if( m_ctx ){
+
+		auto m = QLocale( e ).textDirection() ;
+
+		m_ctx->mainWidget().setLayoutDirection( m ) ;
+
+		m_ctx->TabManager().textAlignmentChanged( m ) ;
+	}
+
 	m_qapp.installTranslator( [ & ](){
 
 		this->clear() ;
 
 		m_translator = new QTranslator() ;
 
-		m_translator->load( e,m_settings.localizationLanguagePath() ) ;
+		auto m = m_translator->load( e,m_pathLanguageFiles ) ;
+
+		if( !m ){
+
+			//???
+		}
 
 		return m_translator ;
 	}() ) ;

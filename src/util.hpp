@@ -24,6 +24,7 @@
 #include <QByteArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QProcess>
 #include <QThread>
 #include <QTimer>
@@ -213,6 +214,18 @@ public:
 		m_doc( obj )
 	{
 		m_error.error = QJsonParseError::NoError ;
+	}
+	QByteArray toData() const
+	{
+		return m_doc.toJson() ;
+	}
+	QJsonObject toObject() const
+	{
+		return m_doc.object() ;
+	}
+	QJsonArray toArray() const
+	{
+		return m_doc.array() ;
 	}
 	Json( QJsonParseError error ) :
 		m_error( std::move( error ) )
@@ -468,13 +481,10 @@ void Timer( int interval,Function&& function )
 	} ) ;
 }
 
-class version{
+class version
+{
 public:
 	version()
-	{
-	}
-	version( int major,int minor,int patch ) :
-		m_valid( true ),m_major( major ),m_minor( minor ),m_patch( patch )
 	{
 	}
 	template< typename T >
@@ -482,34 +492,37 @@ public:
 	{
 		auto s = util::split( e,'.',true ) ;
 
-		int m = s.size() ;
+		auto m = s.size() ;
 
-		if( m == 1 ){
+		try{
+			if( m == 1 ){
 
-			m_major = s.at( 0 ).toInt( &m_valid ) ;
+				m_major = this->fromString( s.at( 0 ) ) ;
 
-		}else if( m == 2 ){
+			}else if( m == 2 ){
 
-			m_major = s.at( 0 ).toInt( &m_valid ) ;
+				m_major = this->fromString( s.at( 0 ) ) ;
+				m_minor = this->fromString( s.at( 1 ) ) ;
 
-			if( m_valid ){
+			}else if( m == 3 ){
 
-				m_minor = s.at( 1 ).toInt( &m_valid ) ;
+				m_major = this->fromString( s.at( 0 ) ) ;
+				m_minor = this->fromString( s.at( 1 ) ) ;
+				m_patch = this->fromString( s.at( 2 ) ) ;
+
+			}else if( m > 3 ){
+
+				m_major   = this->fromString( s.at( 0 ) ) ;
+				m_minor   = this->fromString( s.at( 1 ) ) ;
+				m_patch   = this->fromString( s.at( 2 ) ) ;
+				m_gitDate = this->fromString( s.at( 3 ) ) ;
 			}
 
-		}else if( m >= 3 ) {
+			m_valid = true ;
 
-			m_major = s.at( 0 ).toInt( &m_valid ) ;
+		}catch( ... ){
 
-			if( m_valid ){
-
-				m_minor = s.at( 1 ).toInt( &m_valid ) ;
-
-				if( m_valid ){
-
-					m_patch = s.at( 2 ).toInt( &m_valid ) ;
-				}
-			}
+			m_valid = false ;
 		}
 	}
 	bool valid() const
@@ -518,7 +531,7 @@ public:
 	}
 	bool operator==( const version& other ) const
 	{
-		return m_major == other.m_major && m_minor == other.m_minor && m_patch == other.m_patch ;
+		return m_major == other.m_major && m_minor == other.m_minor && m_patch == other.m_patch && m_gitDate == other.m_gitDate ;
 	}
 	bool operator<( const version& other ) const
 	{
@@ -534,7 +547,14 @@ public:
 
 			}else if( m_minor == other.m_minor ){
 
-				return m_patch < other.m_patch ;
+				if( m_patch < other.m_patch ){
+
+					return true ;
+
+				}else if( m_patch == other.m_patch ){
+
+					return m_gitDate < other.m_gitDate ;
+				}
 			}
 		}
 
@@ -567,18 +587,38 @@ public:
 		auto a = QString::number( m_major ) ;
 		auto b = QString::number( m_minor ) ;
 		auto c = QString::number( m_patch ) ;
+		auto d = QString::number( m_gitDate ) ;
 
-		return a + "." + b + "." + c ;
+		if( d == "0" ){
+
+			return a + "." + b + "." + c ;
+		}else{
+			return a + "." + b + "." + c + "." + d ;
+		}
 	}
 	version move()
 	{
 		return std::move( *this ) ;
 	}
 private:
+	qulonglong fromString( const QString& e )
+	{
+		bool ok ;
+
+		auto m = e.toULongLong( &ok ) ;
+
+		if( !ok ){
+
+			throw -1 ;
+		}
+
+		return m ;
+	}
 	bool m_valid = false ;
-	int m_major = 0 ;
-	int m_minor = 0 ;
-	int m_patch = 0 ;
+	qulonglong m_major = 0 ;
+	qulonglong m_minor = 0 ;
+	qulonglong m_patch = 0 ;
+	qulonglong m_gitDate = 0 ;
 };
 }
 

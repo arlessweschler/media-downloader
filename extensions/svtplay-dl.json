@@ -1,4 +1,5 @@
 {
+    "AutoUpdate": true,
     "BackendPath": "${default}",
     "BatchFileArgument": "-a",
     "CanDownloadPlaylist": false,
@@ -58,6 +59,7 @@
     "SplitLinesBy": [
         "\n"
     ],
+    "Version": "2",
     "VersionArgument": "--version",
     "VersionStringLine": 0,
     "VersionStringPosition": 1

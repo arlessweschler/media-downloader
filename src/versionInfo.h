@@ -37,43 +37,6 @@ namespace Ui
 class versionInfo
 {
 public:
-	struct idone
-	{
-		virtual void operator()()
-		{
-		}
-		virtual void failed()
-		{
-		}
-		virtual ~idone() ;
-	} ;
-
-	class reportDone
-	{
-	public:
-		template< typename Type,typename ... Args >
-		reportDone( Type,Args&& ... args ) :
-			m_handle( std::make_unique< typename Type::type >( std::forward< Args >( args ) ... ) )
-		{
-		}
-		reportDone() : m_handle( std::make_unique< idone >() )
-		{
-		}
-		void operator()() const
-		{
-			( *m_handle )() ;
-		}
-		void failed() const
-		{
-			m_handle->failed() ;
-		}
-		reportDone move()
-		{
-			return std::move( *this ) ;
-		}
-	private:
-		utils::misc::unique_ptr< idone > m_handle ;
-	} ;
 	~versionInfo()
 	{
 	}
@@ -111,19 +74,31 @@ public:
 	class printVinfo
 	{
 	public:
-		printVinfo( engines::Iterator iter,versionInfo::reportDone rd,bool networkAvailable ) :
-			m_iter( std::move( iter ) ),
-			m_rd( std::move( rd ) ),
-			m_fromNetwork( false ),
-			m_networkAvailable( networkAvailable )
+		printVinfo( engines::Iterator iter,networkAccess::reportDone rd,bool networkAvailable ) :
+			m_iter( iter.move() ),
+			m_rd( rd.move() ),
+			m_networkAvailable( networkAvailable ),
+			m_justFromTheNetwork( false )
 		{
 		}
 		printVinfo( networkAccess::iterator iter,bool networkAvailable ) :
-			m_networkIter( std::move( iter ) ),
-			m_iter( m_networkIter.itr() ),
-			m_fromNetwork( true ),
-			m_networkAvailable( networkAvailable )
+			m_iter( iter.getItor() ),
+			m_rd( iter.getRD() ),
+			m_networkAvailable( networkAvailable ),
+			m_justFromTheNetwork( true )
 		{
+		}
+		void setNetworkAvailability( bool e )
+		{
+			m_networkAvailable = e ;
+		}
+		engines::Iterator moveIter()
+		{
+			return m_iter.move() ;
+		}
+		networkAccess::reportDone moveRD()
+		{
+			return m_rd.move() ;
 		}
 		const engines::Iterator& iter() const
 		{
@@ -143,9 +118,11 @@ public:
 		}
 		printVinfo next()
 		{
-			auto m = std::move( *this ) ;
+			auto m = this->move() ;
 
-			m.m_iter = m.m_iter.next() ;
+			m.m_justFromTheNetwork = false ;
+
+			m.m_iter.setNext() ;
 
 			return m ;
 		}
@@ -155,53 +132,50 @@ public:
 		}
 		void reportDone() const
 		{
-			if( m_fromNetwork ){
-
-				m_networkIter.reportDone() ;
-			}else{
-				m_rd() ;
-			}
+			m_rd.done() ;
 		}
 		void failed() const
 		{
-			if( m_fromNetwork ){
-
-				m_networkIter.failed() ;
-			}else{
-				m_rd.failed() ;
-			}
+			m_rd.failed() ;
 		}
 		QStringList& updates()
 		{
 			return m_updates ;
 		}
+		bool justFromTheNetwork()
+		{
+			return m_justFromTheNetwork ;
+		}
 	private:
-		networkAccess::iterator m_networkIter ;
 		engines::Iterator m_iter ;
-		versionInfo::reportDone m_rd ;
-		bool m_fromNetwork ;
-		bool m_networkAvailable = true ;		
+		networkAccess::reportDone m_rd ;
+		bool m_networkAvailable = true ;
+		bool m_justFromTheNetwork = false ;
 		QStringList m_updates ;
 	} ;
 
-	void checkEnginesUpdates( const std::vector< engines::engine >&,bool ) const ;
 	void log( const QString& msg,int id ) const ;
 	void next( versionInfo::printVinfo ) const ;
 	void check( versionInfo::printVinfo ) const ;
 	void check( networkAccess::iterator iter,bool hn ) const
 	{
-		this->check( { std::move( iter ),hn } ) ;
+		this->check( { iter.move(),hn } ) ;
 	}
-	void check( const engines::Iterator& iter,versionInfo::reportDone rd,bool hn ) const
+	void check( const engines::Iterator& iter,networkAccess::reportDone rd,bool hn ) const
 	{
-		this->check( { iter,std::move( rd ),hn } ) ;
+		this->check( { iter,rd.move(),hn } ) ;
 	}
-	void checkMediaDownloaderUpdate( const std::vector< engines::engine >& ) const ;
+	void checkMediaDownloaderUpdate( const engines::EnginesList& ) const ;
 private:
-	void checkMediaDownloaderUpdate( int,const QByteArray&,const std::vector< engines::engine >&,bool ) const ;
-
-	networkAccess::iterator wrap( versionInfo::printVinfo ) const ;
-
+	bool likeYtdlpExtra( const engines::engine& ) const ;
+	networkAccess::reportDone createReportDone() const ;
+	bool allBackendExists( const engines::EnginesList& ) const ;
+	versionInfo::printVinfo createPrintVinfo( const engines::EnginesList&,bool ) const ;
+	void ckMDUpdate( versionInfo::printVinfo,
+			 int,
+			 const QByteArray&,
+			 const engines::EnginesList&,
+			 bool ) const ;
 	class pVInfo
 	{
 	public:
@@ -221,9 +195,13 @@ private:
 		{
 			return std::move( *this ) ;
 		}
+		void setNetworkAvailability( bool e )
+		{
+			m_pvInfo.setNetworkAvailability( e ) ;
+		}
 		versionInfo::printVinfo movePrintVinfo()
 		{
-			return std::move( m_pvInfo ) ;
+			return m_pvInfo.move() ;
 		}
 		const versionInfo::printVinfo& printVinfo()
 		{
@@ -245,6 +223,13 @@ private:
 	void printVersion( versionInfo::printVinfo ) const ;
 	void printVersionP( versionInfo::pVInfo,const utils::qprocess::outPut& ) const ;
 	void printVersionN( versionInfo::pVInfo,const utils::network::reply& ) const ;
+
+	void updateVersion( versionInfo::pVInfo&,const QString&,const QString& ) const ;
+	void updateMediaDownloader( int,
+				    const QJsonDocument&,
+				    const QString&,
+				    const engines::EnginesList&,
+				    bool ) const ;
 
 	const Context& m_ctx ;
 	const networkAccess& m_network ;

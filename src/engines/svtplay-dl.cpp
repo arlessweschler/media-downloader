@@ -21,6 +21,7 @@
 #include "../settings.h"
 #include "../util.hpp"
 #include "../utils/miscellaneous.hpp"
+#include "../utility.h"
 
 const char * svtplay_dl::testData()
 {
@@ -362,11 +363,49 @@ INFO [1689598171.062669] svtplay-dl/svtplay_dl/postprocess/__init__.py/merge: Me
 )R" ;
 }
 
-svtplay_dl::svtplay_dl( const engines& engs,const engines::engine& engine,QJsonObject& ) :
-	engines::engine::functions( engs.Settings(),engine,engs.processEnvironment() ),
-	m_processEnvironment( engines::engine::functions::processEnvironment() )
+void svtplay_dl::init( settings&,Logger& logger,const engines::enginePaths& enginePath )
+{
+	auto m = enginePath.enginePath( "svtplay-dl.json" ) ;
+
+	if( !QFile::exists( m ) ){
+
+		QJsonObject mainObj ;
+
+		utility::addJsonCmd json( mainObj ) ;
+
+		json.add( "Generic",{ { "amd64","svtplay-dl" },{ "aarch64","svtplay-dl" } } ) ;
+
+		json.done() ;
+
+		mainObj.insert( "Version","1" ) ;
+
+		mainObj.insert( "DownloadUrl","" ) ;
+
+		mainObj.insert( "AutoUpdate",false ) ;
+
+		mainObj.insert( "Name","svtplay-dl" ) ;
+
+		mainObj.insert( "VersionArgument","--version" ) ;
+
+		mainObj.insert( "VersionStringLine",0 ) ;
+
+		mainObj.insert( "VersionStringPosition",1 ) ;
+
+		mainObj.insert( "LikeYoutubeDl",false ) ;
+
+		engines::file( m,logger ).write( mainObj ) ;
+	}
+}
+
+svtplay_dl::svtplay_dl( const engines& engs,const engines::engine& engine,QJsonObject& obj ) :
+	engines::engine::baseEngine( engs.Settings(),engine,engs.processEnvironment() ),
+	m_processEnvironment( engines::engine::baseEngine::processEnvironment() )
 {
 	m_processEnvironment.insert( "PYTHONUNBUFFERED","true" ) ;
+
+	obj.insert( "ArchiveContainsFolder",utility::platformIsWindows() ) ;
+
+	obj.insert( "DownloadUrl","https://api.github.com/repos/spaam/svtplay-dl/tags" ) ;
 }
 
 void svtplay_dl::updateOutPutChannel( QProcess::ProcessChannel& s ) const
@@ -374,29 +413,37 @@ void svtplay_dl::updateOutPutChannel( QProcess::ProcessChannel& s ) const
 	s = QProcess::ProcessChannel::StandardError ;
 }
 
-void svtplay_dl::updateDownLoadCmdOptions( const engines::engine::functions::updateOpts& e,bool s )
+void svtplay_dl::updateDownLoadCmdOptions( const engines::engine::baseEngine::updateOpts& e,
+					   bool s,
+					   const QStringList& m )
 {
 	e.ourOptions.append( "--verbose" ) ;
 
-	engines::engine::functions::updateDownLoadCmdOptions( e,s ) ;
+	if( utility::platformisFlatPak() ){
+
+		e.ourOptions.append( "--output" ) ;
+		e.ourOptions.append( engines::engine::baseEngine::Settings().downloadFolder() ) ;
+	}
+
+	engines::engine::baseEngine::updateDownLoadCmdOptions( e,s,m ) ;
 }
 
 QStringList svtplay_dl::horizontalHeaderLabels() const
 {
-	auto m = engines::engine::functions::horizontalHeaderLabels() ;
+	auto m = engines::engine::baseEngine::horizontalHeaderLabels() ;
 
 	m[ 1 ] = QObject::tr( "Method" ) ;
 
 	return m ;
 }
 
-void svtplay_dl::setProxySetting( QStringList& e,const QString& s )
+void svtplay_dl::setProxySetting( engines::engine::baseEngine::optionsEnvironment&,QStringList& e,const QString& s )
 {
 	e.append( "--proxy" ) ;
 	e.append( s ) ;
 }
 
-static bool _add( std::vector< engines::engine::functions::mediaInfo >& s,const QString& e )
+static bool _add( std::vector< engines::engine::baseEngine::mediaInfo >& s,const QString& e )
 {
 	for( const auto& m : s ){
 
@@ -409,7 +456,7 @@ static bool _add( std::vector< engines::engine::functions::mediaInfo >& s,const 
 	return true ;
 }
 
-std::vector<engines::engine::functions::mediaInfo> svtplay_dl::mediaProperties( Logger&,const QByteArray& e )
+std::vector<engines::engine::baseEngine::mediaInfo> svtplay_dl::mediaProperties( Logger&,const QByteArray& e )
 {
 	auto mm = util::split( e,'\n',true ) ;
 
@@ -427,7 +474,7 @@ std::vector<engines::engine::functions::mediaInfo> svtplay_dl::mediaProperties( 
 		}
 	}
 
-	std::vector< engines::engine::functions::mediaInfo > s ;
+	std::vector< engines::engine::baseEngine::mediaInfo > s ;
 
 	for( const auto& it : mm ){
 
@@ -452,7 +499,7 @@ std::vector<engines::engine::functions::mediaInfo> svtplay_dl::mediaProperties( 
 				auto resolution = a.takeAt( 0 ) ;
 				auto notes      = method + "\n" + a.join( ", " ) ;
 
-				s.emplace_back( format,codec,resolution,notes ) ;
+				s.emplace_back( format,codec,resolution,"NA","0",notes,"","" ) ;
 			}
 
 		}else if( n == 3 ){
@@ -468,7 +515,7 @@ std::vector<engines::engine::functions::mediaInfo> svtplay_dl::mediaProperties( 
 				auto resolution = "N/A" ;
 				auto notes      = method ;
 
-				s.emplace_back( format,codec,resolution,notes ) ;
+				s.emplace_back( format,codec,resolution,"NA","0",notes,"","" ) ;
 			}
 		}
 	}
@@ -485,10 +532,10 @@ svtplay_dl::~svtplay_dl()
 {
 }
 
-engines::engine::functions::DataFilter svtplay_dl::Filter( int id )
+engines::engine::baseEngine::DataFilter svtplay_dl::Filter( int id )
 {
-	auto& s = engines::engine::functions::Settings() ;
-	const auto& engine = engines::engine::functions::engine() ;
+	auto& s = engines::engine::baseEngine::Settings() ;
+	const auto& engine = engines::engine::baseEngine::engine() ;
 
 	return { util::types::type_identity< svtplay_dl::svtplay_dlFilter >(),s,engine,id } ;
 }
@@ -496,21 +543,23 @@ engines::engine::functions::DataFilter svtplay_dl::Filter( int id )
 QString svtplay_dl::updateTextOnCompleteDownlod( const QString& uiText,
 						 const QString& bkText,
 						 const QString& dopts,
-						 const engines::engine::functions::finishedState& f )
+						 const QString& tabName,
+						 const engines::engine::baseEngine::finishedState& f )
 {
 	if( f.success() ){
 
-		return engines::engine::functions::updateTextOnCompleteDownlod( uiText,dopts,f ) ;
+		return engines::engine::baseEngine::updateTextOnCompleteDownlod( uiText,dopts,tabName,f ) ;
 
 	}else if( f.cancelled() ){
 
-		return engines::engine::functions::updateTextOnCompleteDownlod( bkText,dopts,f ) ;
+		return engines::engine::baseEngine::updateTextOnCompleteDownlod( bkText,dopts,tabName,f ) ;
 	}else{
-		using functions = engines::engine::functions ;
+		using functions = engines::engine::baseEngine ;
 
 		if( uiText.startsWith( "ERROR:" ) ){
 
-			auto m = engines::engine::functions::updateTextOnCompleteDownlod( uiText.mid( 6 ),dopts,f ) ;
+			auto s = uiText.mid( 6 ) ;
+			auto m = engines::engine::baseEngine::updateTextOnCompleteDownlod( s,dopts,tabName,f ) ;
 
 			return m + "\n" + bkText ;
 
@@ -522,52 +571,26 @@ QString svtplay_dl::updateTextOnCompleteDownlod( const QString& uiText,
 
 			return functions::errorString( f,functions::errors::unknownUrl,bkText ) ;
 		}else{
-			auto m = engines::engine::functions::processCompleteStateText( f ) ;
+			auto m = engines::engine::baseEngine::processCompleteStateText( f ) ;
 			return m + "\n" + bkText ;
 		}
 	}
 }
 
 svtplay_dl::svtplay_dlFilter::svtplay_dlFilter( settings&,const engines::engine& engine,int id ) :
-	engines::engine::functions::filter( engine,id ){
+	engines::engine::baseEngine::filter( engine,id ){
 }
 
-static bool _startsWithCondition( const QByteArray& e )
-{
-	if( e.startsWith( '[' ) && e.size() > 1 ){
-
-		auto m = e[ 1 ] ;
-
-		return m >= '0' && m <= '9' ;
-
-	}else if( e.startsWith( "\r[" ) && e.size() > 2 ){
-
-		auto m = e[ 2 ] ;
-
-		return m >= '0' && m <= '9' ;
-	}else{
-		return false ;
-	}
-}
-
-static bool _meetCondition( const QByteArray& e )
-{
-	return _startsWithCondition( e ) && e.contains( " ETA:" ) ;
-}
-
-static bool _meetCondition( const engines::engine&,const QByteArray& e )
-{
-	return e.contains( "] (" ) && e.contains( " ETA:" ) ;
-}
-
-class svtplayFilter : public engines::engine::functions::filterOutPut
+class svtplayFilter : public engines::engine::baseEngine::filterOutPut
 {
 public:
-	svtplayFilter( const engines::engine& engine ) : m_engine( engine )
+	svtplayFilter( const engines::engine& engine ) :
+		m_engine( engine ),
+		m_callables( svtplayFilter::meetCondition,svtplayFilter::skipCondition )
 	{
 	}
-	engines::engine::functions::filterOutPut::result
-	formatOutput( const engines::engine::functions::filterOutPut::args& args ) const override
+	engines::engine::baseEngine::filterOutPut::result
+	formatOutput( const engines::engine::baseEngine::filterOutPut::args& args ) const override
 	{
 		const auto& l = args.locale ;
 		auto& d = args.data ;
@@ -581,7 +604,10 @@ public:
 
 				if( s.startsWith( "Outfile: " ) ){
 
-					d.svtData().setFileName( s.mid( 9 ) ) ;
+					auto m = s.mid( 9 ) ;
+					d.svtData().setFileName( m ) ;
+
+					args.data.addFileName( m ) ;
 				}
 			} ) ;
 		}
@@ -602,7 +628,7 @@ public:
 
 			if( d.lastText().contains( "ETA" ) ){
 
-				return { d.lastText(),m_engine,_meetCondition } ;
+				return { d.lastText(),m_engine,m_callables } ;
 			}else{
 				auto s = m.indexOf( "HTTP getting" ) ;
 
@@ -613,7 +639,7 @@ public:
 					m_tmp.clear() ;
 				}
 
-				return { m_tmp,m_engine,_meetCondition } ;
+				return { m_tmp,m_engine,m_callables } ;
 			}
 
 		}else if( m.startsWith( "INFO" ) ){
@@ -634,7 +660,7 @@ public:
 				}
 			}
 
-			return { m_tmp,m_engine,_meetCondition } ;
+			return { m_tmp,m_engine,m_callables } ;
 		}
 
 		auto e = m.indexOf( "ETA" ) ;
@@ -690,13 +716,13 @@ public:
 			m_tmp = "[00/00] (NA), " + a ;
 		}
 
-		return { m_tmp,m_engine,_meetCondition } ;
+		return { m_tmp,m_engine,m_callables } ;
 	}
-	bool meetCondition( const engines::engine::functions::filterOutPut::args& args ) const override
+	bool meetCondition( const engines::engine::baseEngine::filterOutPut::args& args ) const override
 	{
 		const auto& e = args.outPut ;
 
-		if( _meetCondition( e ) ){
+		if( svtplayFilter::meetCondition( e ) ){
 
 			return true ;
 		}else{
@@ -708,18 +734,122 @@ public:
 		return m_engine ;
 	}
 private:
+	static bool startsWithCondition( const QByteArray& e )
+	{
+		if( e.startsWith( '[' ) && e.size() > 1 ){
+
+			auto m = e[ 1 ] ;
+
+			return m >= '0' && m <= '9' ;
+
+		}else if( e.startsWith( "\r[" ) && e.size() > 2 ){
+
+			auto m = e[ 2 ] ;
+
+			return m >= '0' && m <= '9' ;
+		}else{
+			return false ;
+		}
+	}
+	static bool meetCondition( const QByteArray& e )
+	{
+		return svtplayFilter::startsWithCondition( e ) && e.contains( " ETA:" ) ;
+	}
+	static bool meetCondition( const engines::engine&,const QByteArray& e )
+	{
+		return e.contains( "] (" ) && e.contains( " ETA:" ) ;
+	}
+	static bool skipCondition( const engines::engine&,const QByteArray& )
+	{
+		return false ;
+	}
+
 	const engines::engine& m_engine ;
 	mutable QByteArray m_tmp ;
+	engines::engine::baseEngine::filterOutPut::result::callables m_callables ;
 } ;
 
-engines::engine::functions::FilterOutPut svtplay_dl::filterOutput()
+engines::engine::baseEngine::FilterOutPut svtplay_dl::filterOutput( int )
 {
-	const engines::engine& engine = engines::engine::functions::engine() ;
+	const engines::engine& engine = engines::engine::baseEngine::engine() ;
 
 	return { util::types::type_identity< svtplayFilter >(),engine } ;
 }
 
-const QByteArray& svtplay_dl::svtplay_dlFilter::operator()( const Logger::Data& s )
+QString svtplay_dl::updateCmdPath( const QString& e )
+{
+	const auto& name = engines::engine::baseEngine::engine().name() ;
+
+	if( utility::platformIsWindows() ){
+
+		return e + "/" + name + "/" + name + ".exe" ;
+	}else{
+		return e ;
+	}
+}
+
+engines::metadata svtplay_dl::parseJsonDataFromGitHub( const QJsonDocument& doc )
+{
+	auto array = doc.array() ;
+
+	if( array.size() ){
+
+		QString fileName ;
+		QString url ;
+
+		if( utility::platformIsWindows() ){
+
+			if( utility::CPU().x86_32() ){
+
+				fileName = "svtplay-dl-win32.zip" ;
+
+				url = "https://svtplay-dl.se/download/%1/svtplay-dl-win32.zip" ;
+			}else{
+				fileName = "svtplay-dl-amd64.zip" ;
+
+				url = "https://svtplay-dl.se/download/%1/svtplay-dl-amd64.zip" ;
+			}
+		}else{
+			fileName = "svtplay-dl" ;
+
+			url = "https://svtplay-dl.se/download/%1/svtplay-dl" ;
+		}
+
+		QJsonObject obj ;
+
+		auto name = array[ 0 ].toObject().value( "name" ).toString() ;
+
+		obj.insert( "browser_download_url",url.arg( name ) ) ;
+		obj.insert( "name",fileName ) ;
+		obj.insert( "digest","" ) ;
+		obj.insert( "size",0 ) ;
+
+		return obj ;
+	}else{
+		return {} ;
+	}
+}
+
+engines::engine::baseEngine::onlineVersion svtplay_dl::versionInfoFromGithub( const QByteArray& e )
+{
+	auto doc = utility::jsonDoc( e ) ;
+
+	if( doc.valid() ){
+
+		auto s = doc.toArray() ;
+
+		if( s.size() ){
+
+			auto m = s[ 0 ].toObject().value( "name" ).toString() ;
+
+			return { m,m } ;
+		}
+	}
+
+	return {} ;
+}
+
+const QByteArray& svtplay_dl::svtplay_dlFilter::operator()( Logger::Data& s )
 {
 	if( s.doneDownloading() ){
 
@@ -727,7 +857,7 @@ const QByteArray& svtplay_dl::svtplay_dlFilter::operator()( const Logger::Data& 
 
 		for( auto it = lines.rbegin() ; it != lines.rend() ; it++ ){
 
-			const QByteArray& m = *it ;
+			const auto& m = it->data() ;
 
 			if( m.startsWith( "ERROR" ) ){
 
@@ -766,6 +896,8 @@ const QByteArray& svtplay_dl::svtplay_dlFilter::operator()( const Logger::Data& 
 
 			return m_tmp ;
 		}else{
+			s.addFileName( m_fileName ) ;
+
 			return m_fileName ;
 		}
 
@@ -784,69 +916,117 @@ const QByteArray& svtplay_dl::svtplay_dlFilter::operator()( const Logger::Data& 
 	}else{
 		const auto& m = s.lastText() ;
 
-		if( m.startsWith( "WARNING" ) && m.contains( "already exists" ) ){
+		if( m.isEmpty() ){
 
-			auto a = m.indexOf( '(' ) ;
-			auto b = m.lastIndexOf( ')' ) ;
+			s.reverseForEach( [ this ]( int,const QByteArray& e ){
 
-			if( a != -1 && b != -1 && b > a ){
+				if( e.isEmpty() ){
 
-				m_tmp = "\"" + m.mid( a + 1,b - a - 1 ) + "\" already exists" ;
-			}else{
-				m_tmp = "media already exists" ;
-			}
+					return false ;
+				}else{
+					m_tmp = this->lastText( e ) ;
 
-			return m_tmp ;
-
-		}else if( m.contains( "Merge audio, video and subtitle into " ) ){
-
-			auto e = m.indexOf( "Merge audio, video and subtitle into " ) ;
-
-			if( e != -1 ){
-
-				m_fileName = m.mid( e + 37 ) ;
-			}
-
-			return m_fileName ;
-
-		}else if( m.contains( "Merge audio and video into " ) ){
-
-			auto e = m.indexOf( "Merge audio and video into " ) ;
-
-			if( e != -1 ){
-
-				m_fileName = m.mid( e + 27 ) ;
-			}
-
-			return m_fileName ;
-
-		}else if( m.contains( "INFO: " ) ){
-
-			auto e = m.indexOf( "INFO: " ) ;
-
-			if( e != -1 ){
-
-				m_tmp = m.mid( e + 6 ) ;
-			}
-
-			return m_tmp ;
-
-		}else if( m.startsWith( "ERROR" ) ){
-
-			auto e = m.indexOf( ":" ) ;
-
-			if( e != -1 ){
-
-				m_tmp = m.mid( e + 1 ) ;
-			}
+					return true ;
+				}
+			} ) ;
 
 			return m_tmp ;
 		}else{
-			return m_preProcessing.text() ;
+			return this->lastText( m ) ;
 		}
 	}
 }
 
 svtplay_dl::svtplay_dlFilter::~svtplay_dlFilter()
 {
+}
+
+const QByteArray& svtplay_dl::svtplay_dlFilter::lastText( const QByteArray& m )
+{
+	if( m.startsWith( "WARNING" ) && m.contains( "already exists" ) ){
+
+		auto a = m.indexOf( '(' ) ;
+		auto b = m.lastIndexOf( ')' ) ;
+
+		if( a != -1 && b != -1 && b > a ){
+
+			m_tmp = "\"" + m.mid( a + 1,b - a - 1 ) + "\" already exists" ;
+		}else{
+			m_tmp = "media already exists" ;
+		}
+
+		return m_tmp ;
+
+	}else if( m.contains( "Merge audio, video and subtitle into " ) ){
+
+		auto e = m.indexOf( "Merge audio, video and subtitle into " ) ;
+
+		if( e != -1 ){
+
+			m_fileName = m.mid( e + 37 ) ;
+		}
+
+		return m_fileName ;
+
+	}else if( m.contains( "Merge audio and video into " ) ){
+
+		auto e = m.indexOf( "Merge audio and video into " ) ;
+
+		if( e != -1 ){
+
+			m_fileName = m.mid( e + 27 ) ;
+		}
+
+		return m_fileName ;
+
+	}else if( m.contains( "INFO: " ) ){
+
+		auto e = m.indexOf( "INFO: " ) ;
+
+		if( e != -1 ){
+
+			m_tmp = m.mid( e + 6 ) ;
+		}
+
+		return m_tmp ;
+
+	}else if( m.startsWith( "ERROR" ) ){
+
+		auto e = m.indexOf( ":" ) ;
+
+		if( e != -1 ){
+
+			m_tmp = m.mid( e + 1 ) ;
+		}
+
+		return m_tmp ;
+
+	}else if( m.startsWith( "Getting: " ) ){
+
+		m_tmp = QObject::tr( "Getting" ).toUtf8() + "\n" ;
+
+		if( m.size() < 91 ){
+
+			m_tmp += m ;
+
+			m_tmp.replace( "Getting:  '","" ) ;
+		}else{
+			auto e = m ;
+
+			e.replace( "Getting:  '","" ) ;
+
+			m_tmp += e.mid( 0,40 ) + "..." ;
+
+			m_tmp += e.mid( e.size() - 40 ) ;
+		}
+
+		if( m_tmp.endsWith( "'" ) ){
+
+			m_tmp.truncate( m_tmp.size() - 1 ) ;
+		}
+
+		return m_tmp ;
+	}else{
+		return m_preProcessing.text() ;
+	}
 }

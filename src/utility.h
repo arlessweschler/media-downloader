@@ -30,6 +30,8 @@
 #include <QDebug>
 #include <QTime>
 #include <QNetworkProxy>
+#include <QMutex>
+#include <QOperatingSystemVersion>
 
 #include <type_traits>
 #include <memory>
@@ -48,6 +50,12 @@
 
 #include "networkAccess.h"
 
+#ifdef Q_OS_WIN
+#if QT_VERSION >= QT_VERSION_CHECK( 6,6,0 )
+#include <QNtfsPermissionCheckGuard>
+#endif
+#endif
+
 class Context ;
 class ContextWinId ;
 
@@ -60,6 +68,25 @@ namespace Ui
 
 namespace utility
 {
+	namespace impl
+	{
+		void qJsonArrJoin( QJsonArray& ) ;
+
+		template< typename First,typename ... Rest >
+		static void qJsonArrJoin( QJsonArray& arr,const First& f,Rest&& ... rest )
+		{
+			arr.append( f ) ;
+			impl::qJsonArrJoin( arr,std::forward< Rest >( rest ) ... ) ;
+		}
+	}
+
+	template< typename ... Args >
+	static QJsonArray QJsonArrayJoin( Args&& ... args )
+	{
+		QJsonArray arr ;
+		impl::qJsonArrJoin( arr,std::forward< Args >( args ) ... ) ;
+		return arr ;
+	}
 	template< typename T >
 	class vector
 	{
@@ -302,6 +329,7 @@ namespace utility
 		}
 		QStringList options() const ;
 	private:
+		QStringList parseOptions( const QString&,const engines::engine& ) ;
 		QString m_credentials ;
 		QStringList m_uiDownloadOptions ;
 		QStringList m_otherOptions ;
@@ -396,6 +424,146 @@ namespace utility
 			}
 		}
 	}
+	template< typename Function >
+	QJsonObject parseJsonDataFromGitHub( const QJsonDocument& doc,Function function )
+	{
+		const auto array = doc.object().value( "assets" ).toArray() ;
+
+		for( const auto it : array ){
+
+			auto obj = it.toObject() ;
+
+			if( function( obj ) ){
+
+				auto hash = obj.value( "digest" ).toString() ;
+
+				if( hash.startsWith( "sha256:" ) ){
+
+					hash.replace( "sha256:","" ) ;
+
+					obj.insert( "digest",hash.toLower() ) ;
+				}
+
+				return obj ;
+			}
+		}
+
+		return {} ;
+	}
+	class PretendPlatform
+	{
+	public:
+		PretendPlatform( const QStringList& m )
+		{
+			if( this->isWindows() ){
+
+				m_pretend32Bit = m.contains( "--pretend-x86" ) ;
+
+				m_pretendWindows7 = m.contains( "--pretend-win7" ) ;
+
+				m_pretendLegacyWindows = m.contains( "--pretend-winLegacy" ) ;
+
+				m_pretendModernWindows = m.contains( "--pretend-winModern" ) ;
+			}
+		}
+		bool isWindows7() const
+		{
+			return m_pretendWindows7 ;
+		}
+		bool is32Bit() const
+		{
+			return m_pretend32Bit ;
+		}
+		bool isLegacyWindows() const
+		{
+			return m_pretendLegacyWindows ;
+		}
+		bool isModernWindows() const
+		{
+			return m_pretendModernWindows ;
+		}
+	private:
+		bool isWindows() const
+		{
+			#ifdef Q_OS_WIN
+				return true ;
+			#else
+				return false ;
+			#endif
+		}
+		bool m_pretend32Bit         = false ;
+		bool m_pretendWindows7      = false ;
+		bool m_pretendLegacyWindows = false ;
+		bool m_pretendModernWindows = false;
+	} ;
+
+	class SysPlatForm
+	{
+	public:
+		SysPlatForm()
+		{
+			auto m            = QOperatingSystemVersion::current() ;
+
+			m_isWin7          = this->Win7( m ) ;
+			m_isLegacyWindows = this->LegacyWindows( m ) ;
+			m_isModernWindows = this->ModernWindows( m ) ;
+		}
+		bool isWin7() const
+		{
+			return m_isWin7 ;
+		}
+		bool isLegacyWindows() const
+		{
+			return m_isLegacyWindows ;
+		}
+		bool isModernWindows() const
+		{
+			return m_isModernWindows ;
+		}
+		QString errorMessage() const ;
+		bool isOs2() const
+		{
+			#if defined(__OS2__) || defined(OS2) || defined(_OS2)
+				return true ;
+			#else
+				return false ;
+			#endif
+		}
+		bool isWindows() const
+		{
+			#ifdef Q_OS_WIN
+				return true ;
+			#else
+				return false ;
+			#endif
+		}
+		bool isLinux() const
+		{
+			#ifdef Q_OS_LINUX
+				return true ;
+			#else
+				return false ;
+			#endif
+		}
+		bool isMacOs() const
+		{
+			#ifdef Q_OS_MACOS
+				return true ;
+			#else
+				return false ;
+			#endif
+		}
+	private:
+		bool Win7( const QOperatingSystemVersion& system ) ;
+		bool LegacyWindows( const QOperatingSystemVersion& system ) ;
+		bool ModernWindows( const QOperatingSystemVersion& system ) ;
+		bool m_isWin7 ;
+		bool m_isLegacyWindows ;
+		bool m_isModernWindows ;
+	} ;
+
+	void setPlatForms( const utility::PretendPlatform& ) ;
+	void setPlatForms( const utility::SysPlatForm& ) ;
 
 	class cliArguments
 	{
@@ -404,25 +572,157 @@ namespace utility
 		bool contains( const char * ) const ;
 		bool runningUpdated() const ;
 		bool portable() const ;
+		bool printMediaPlayers() const ;
 		QString dataPath() const ;
 		QString originalPath() const ;
 		QString originalVersion() const ;
+		QString pathToOldUpdatedVersion() const ;
 		QString value( const char * ) const ;
-		QStringList arguments( const QString&,const QString&,bool ) const ;
+		QStringList arguments( const QString&,const QString&,const QString&,bool ) const ;
 		const QStringList& arguments() const ;
+		static bool useFakeMdHash() ;
+		static bool debug() ;
 	private:
 		QStringList m_args ;
+	} ;
+	class archiveData
+	{
+	public:
+		static QByteArray logHistoryData( const Context& ) ;
+		archiveData( QStringList opts,const engines::engine& engine,const Context& ctx ) ;
+		void addToHistory( QJsonObject ) ;
+		const QStringList& options() const
+		{
+			return m_options ;
+		}
+		int maxMediaLength() const
+		{
+			return engines::engine::baseEngine::timer::toSeconds( m_maxMediaLength ) ;
+		}
+		int minMediaLength() const
+		{
+			return engines::engine::baseEngine::timer::toSeconds( m_minMediaLength ) ;
+		}
+		bool contains( const QString& e ) const ;
+		bool breakOnExisting() const
+		{
+			return m_breakOnExisting ;
+		}
+		bool skipOnExisting() const
+		{
+			return m_skipOnExisting ;
+		}
+		archiveData move()
+		{
+			return std::move( *this ) ;
+		}
+	private:
+		static void guardHistoryFile() ;
+		static void unGuardHistoryFile() ;
+		bool m_breakOnExisting = false ;
+		bool m_skipOnExisting = false ;
+		QStringList m_options ;
+		QString m_maxMediaLength ;
+		QString m_minMediaLength ;
+		QByteArray m_archiveFileData ;
+		const Context& m_ctx ;
+		static QMutex m_mutex ;
+	} ;
+	class event
+	{
+	public:
+		static QByteArray toJson( const utility::cliArguments& e )
+		{
+			QJsonObject obj ;
+
+			if( e.contains( "-a" ) || e.contains( "--auto-download" ) ){
+
+				obj.insert( "AutoDownload",true ) ;
+			}else{
+				obj.insert( "AutoDownload",false ) ;
+			}
+
+			if( e.contains( "-e" ) || e.contains( "--show-metadata" ) ){
+
+				obj.insert( "ShowMetaData",true ) ;
+			}else{
+				obj.insert( "ShowMetaData",false ) ;
+			}
+
+			auto url = e.value( "-u" ) ;
+
+			if( url.isEmpty() ){
+
+				url = e.value( "--url" ) ;
+			}
+
+			obj.insert( "Url",url ) ;
+
+			auto proxy = e.value( "-p" ) ;
+
+			if( proxy.isEmpty() ){
+
+				proxy = e.value( "--proxy" ) ;
+			}
+
+			obj.insert( "Proxy",proxy ) ;
+
+			return QJsonDocument( obj ).toJson( QJsonDocument::Indented ) ;
+		}
+		event( QJsonObject obj ) : m_obj( std::move( obj ) )
+		{
+		}
+		QString url() const
+		{
+			return m_obj.value( "Url" ).toString() ;
+		}
+		QString proxy() const
+		{
+			return m_obj.value( "Proxy" ).toString() ;
+		}
+		bool autoDownload() const
+		{
+			return m_obj.value( "AutoDownload" ).toBool() ;
+		}
+		bool showMetaData() const
+		{
+			return m_obj.value( "ShowMetaData" ).toBool() ;
+		}
+	private:
+		QJsonObject m_obj ;
 	} ;
 	class printOutPut
 	{
 	public:
 		printOutPut( const utility::cliArguments& ) ;
-		void operator()( const QByteArray& ) ;
-		operator bool() const ;
+		void operator()( int,const QByteArray& ) ;
+		bool valid() const ;
 	private:
 		QFile m_outPutFile ;
 		enum class status{ qdebug,debug,notSet } m_status = utility::printOutPut::status::notSet ;
 	} ;
+	class checkPermissions
+	{
+	public:
+		void enable() ;
+		void disable() ;
+	private:
+		#ifdef Q_OS_WIN
+		#if QT_VERSION >= QT_VERSION_CHECK( 6,6,0 )
+			QNtfsPermissionCheckGuard m_guard ;
+		#endif
+		#endif
+	} ;
+	struct PlayerOpts
+	{
+		PlayerOpts( QString e,QString n ) :
+			exePath( std::move( e ) ),name( std::move( n ) )
+		{
+		}
+		QString exePath ;
+		QString name ;
+	} ;
+	std::vector< utility::PlayerOpts > getMediaPlayers() ;
 	void setDefaultEngine( const Context& ctx,const QString& name );
 	const engines::engine& resolveEngine( const tableWidget&,
 					      const engines::engine&,
@@ -430,9 +730,13 @@ namespace utility
 					      int row ) ;
 
 	QString failedToFindExecutableString( const QString& cmd ) ;
-	int sequentialID() ;
-	int concurrentID() ;
+
+	int loggerID() ;
 	void initDone() ;
+	void addtoHistory( const engines::engine& engine,
+			   const Context& ctx,
+			   const QString& tabName,
+			   const tableWidget::entry& e ) ;
 	void saveDownloadList( const Context&,QMenu&,tableWidget&,bool ) ;
 	void saveDownloadList( const Context&,tableWidget&,bool ) ;
 	void wait( int time ) ;
@@ -441,13 +745,67 @@ namespace utility
 	void setPermissions( QFile& ) ;
 	void setPermissions( const QString& ) ;
 	void failedToParseJsonData( Logger&,const QJsonParseError& ) ;
+	bool runningGitVersion() ;
+	bool runningGitVersion( const QString& ) ;
+	bool Qt6Version() ;
+	bool Qt5Version() ;
+	const QString& fakeRunningVersionOfMediaDownloader() ;
 	QString runningVersionOfMediaDownloader() ;
 	QString aboutVersionInfo() ;
+	QString compileTimeVersion() ;
 	void setRunningVersionOfMediaDownloader( const QString& ) ;
 	void setHelpVersionOfMediaDownloader( const QString& ) ;
 	QString homePath() ;
 	QString clipboardText() ;
 	QString fromSecsSinceEpoch( qint64 ) ;
+	QStringList setEnvArgs( engines::engine::baseEngine::optionsEnvironment&,const QStringList& ) ;
+
+	enum class mainWindowKeyCombo{ CTRL_D,CTRL_A,ENTER } ;
+
+	template< typename Table >
+	inline void keyPressed( Table& table,utility::mainWindowKeyCombo m )
+	{
+		if( m == utility::mainWindowKeyCombo::CTRL_A ){
+
+			auto& t = table.get() ;
+
+			auto first = table.startPosition() ;
+
+			for( int row = 0 ; row < t.rowCount() ; row++ ){
+
+				for( int column = first ; column < t.columnCount() ; column++ ){
+
+					t.item( row,column )->setSelected( true ) ;
+				}
+			}
+
+		}else if( m == utility::mainWindowKeyCombo::CTRL_D ){
+
+			table.removeAllSelected() ;
+		}
+	}
+
+	template< typename Function >
+	void removeAllSelected( QTableWidget& t,Function function )
+	{
+		std::vector< int > selected ;
+
+		auto col = t.columnCount() - 1 ;
+
+		for( int i = 0 ; i < t.rowCount() ; i++ ){
+
+			if( t.item( i,col )->isSelected() ){
+
+				selected.emplace_back( i ) ;
+			}
+		}
+
+		for( auto it = selected.rbegin() ; it != selected.rend() ; it++ ){
+
+			function( *it ) ;
+		}
+	}
+
 	struct downLoadOptions
 	{
 		downLoadOptions()
@@ -463,57 +821,307 @@ namespace utility
 		bool hasExtraOptions = false ;
 		QString downloadOptions ;
 	} ;
+	class jsonDoc
+	{
+	public:
+		jsonDoc( const QByteArray& e ) : m_doc( QJsonDocument::fromJson( e,&m_err ) )
+		{
+		}
+		const QJsonDocument& get() const
+		{
+			return m_doc ;
+		}
+		bool valid() const
+		{
+			return m_err.error == QJsonParseError::NoError ;
+		}
+		bool notValid() const
+		{
+			return m_err.error != QJsonParseError::NoError ;
+		}
+		QString errorString() const
+		{
+			return m_err.errorString() ;
+		}
+		const QJsonParseError& error() const
+		{
+			return m_err ;
+		}
+		QJsonObject toObject() const
+		{
+			return m_doc.object() ;
+		}
+		QJsonArray toArray() const
+		{
+			return m_doc.array() ;
+		}
+		bool isObject() const
+		{
+			return m_doc.isObject() ;
+		}
+		bool isArray() const
+		{
+			return m_doc.isArray() ;
+		}
+	private:
+		QJsonParseError m_err ;
+		QJsonDocument m_doc ;
+	} ;
+	QString parseVersionInfo( const utils::qprocess::outPut& ) ;
 	utility::downLoadOptions setDownloadOptions( const engines::engine&,tableWidget&,int,const QString& = {} ) ;
-	void ntfsEnablePermissionChecking( bool ) ;
-	bool copyFile( const QString& src,const QString& dst ) ;
+	bool copyFile( const QString& src,const QString& dst,bool = true ) ;
 	bool pathIsFolderAndExists( const QString& ) ;
 	bool platformIsWindows() ;
-	bool platformIs32Bit() ;
+	bool platformIsWindows7() ;
+	bool platformIsLegacyWindows() ;
+	bool platformIsModernWindows() ;
 	bool platformIsLinux() ;
 	bool platformIsOSX() ;
 	bool platformisOS2() ;
 	bool platformIsNOTWindows() ;
 	bool platformIsLikeWindows() ;
+	bool platformisFlatPak() ;
+	bool platformIsAppImage() ;
 	bool addData( const QByteArray& ) ;
+	bool containsLinkerWarning( const QByteArray& ) ;
+	QStringList dirEntries( const QString& ) ;
+	QString rename( const Context&,QTableWidgetItem&,const QString&,const QString&,const QString& ) ;
+	QString rename( const QString& oldName,const QString& newName ) ;
+	QString removeFile( const QString& ) ;
+	QString removeFolder( const QString& ) ;
+	void deleteTmpFiles( const QString&,std::vector< QByteArray > ) ;
+	QString OSXApplicationDirPath() ;
+	QString OSXtranslationFilesPath() ;
+	QString OSX3rdPartyDirPath() ;
 	QString windowsApplicationDirPath() ;
 	QString windowsGateWayAddress() ;
 	QString windowsGetClipBoardText( const ContextWinId& ) ;
 	void windowsSetDarkModeTitleBar( const Context& ) ;
 	QByteArray barLine() ;
+	QString errorMessage() ;
+	void copyToClipboardUrls( tableWidget& ) ;
 	bool isRelativePath( const QString& ) ;
+	bool fileIsInvalidForGettingThumbnail( const QByteArray& ) ;
 	QString downloadFolder( const Context& ctx ) ;
 	bool onlyWantedVersionInfo( const utility::cliArguments& ) ;
 	bool startedUpdatedVersion( settings&,const utility::cliArguments& ) ;
 	void hideUnhideEntries( QMenu&,tableWidget&,int,bool ) ;
-
+	quint64 simpleRandomNumber() ;
+	void setCookieOption( QStringList&,settings&,const engines::engine& ) ;
 	void addToListOptionsFromsDownload( QStringList& args,
 					    const QString& downLoadOptions,
 					    const Context& ctx,
 					    const engines::engine& engine ) ;
 
+	template< typename Parent >
+	void setThumbNail( const std::vector< QByteArray >&fileNames,
+			  const QString& downloadFolder,
+			  Parent parent )
+	{
+		QString filePath ;
+
+		for( const auto& it : fileNames ){
+
+			if( parent.invalidEntry( it ) ){
+
+				continue ;
+			}else{
+				auto m = downloadFolder + "/" + it ;
+
+				QFile info( m ) ;
+
+				if( info.size() > 5 * 1024 * 1024 ){
+
+					continue	 ;
+				}else{
+					filePath = m ;
+
+					break ;
+				}
+			}
+		}
+
+		if( !filePath.isEmpty() ){
+
+			parent.setPath( filePath ) ;
+			utils::qthread::run( parent.move() ) ;
+		}
+	}
+
+	template< typename Functions >
+	inline bool showContextMenuLogWidget( QObject * obj,
+					      QEvent * event,
+					      QPlainTextEdit * textEdit,
+					      Functions functions )
+	{
+		if( obj != textEdit ){
+
+			return false ;
+		}
+
+		auto a = dynamic_cast< QMouseEvent * >( event ) ;
+
+		if( a ){
+
+			auto b = a->buttons() & Qt::MouseButton::RightButton ;
+
+			if( event->type() && b ){
+
+				std::unique_ptr< QMenu > menu( textEdit->createStandardContextMenu() ) ;
+
+				#if QT_VERSION >= QT_VERSION_CHECK( 5,6,0 )
+					menu->addSeparator() ;
+
+					auto icon = QIcon::fromTheme( "edit-cut" ) ;
+
+					menu->addAction( icon,"Clear",functions.clear() ) ;
+
+					if( functions.hasHistory() ){
+
+						auto icon = QIcon::fromTheme( "edit-copy" ) ;
+						menu->addSeparator() ;
+						menu->addAction( icon,QObject::tr( "Show Download History" ),functions.showDownloadHistory() ) ;
+					}
+				#else
+					Q_UNUSED( functions )
+				#endif
+
+				menu->exec( QCursor::pos() ) ;
+
+				return true ;
+			}
+		}
+
+		return false ;
+	}
+
+	class CPU
+	{
+	public:
+		CPU() ;
+		bool x86_32() const ;
+		bool x86_64() const ;
+		bool aarch64() const ;
+		bool aarch32() const ;
+	private:
+		static const QString& getCPU() ;
+		static QByteArray getCPUNatively() ;
+
+		const QString& m_cpu ;
+	} ;
+
+	class UrlLinks
+	{
+	public:
+		UrlLinks( const QJsonArray& arr )
+		{
+			for( int m = 0 ; m < arr.size() ; m++ ){
+
+				m_links.append( arr[ m ].toString() ) ;
+			}
+		}
+		const QStringList& toList() const
+		{
+			return m_links ;
+		}
+		bool isEmpty() const
+		{
+			return m_links.isEmpty() ;
+		}
+		UrlLinks move()
+		{
+			return std::move( *this ) ;
+		}
+	private:
+		QStringList m_links ;
+	} ;
+
+	void contextMenuForDirectUrl( std::vector< UrlLinks >,QMenu&,const QJsonObject&,const Context& ) ;
+
+	template< typename TableWidget >
+	void setContextMenuForDirectUrl( const TableWidget& table,QMenu& m,const Context& ctx )
+	{
+		auto s = table.selectedRows() ;
+
+		if( s.size() > 0 ){
+
+			std::vector< UrlLinks > links ;
+
+			for( size_t m = 0 ; m < s.size() ; m++ ){
+
+				const auto& obj = table.stuffAt( s[ m ] ) ;
+
+				links.emplace_back( obj.value( "urls" ).toArray() ) ;
+			}
+
+			auto mobj = table.stuffAt( s[ 0 ] ) ;
+
+			utility::contextMenuForDirectUrl( std::move( links ),m,mobj,ctx ) ;
+		}
+	}
 	class addJsonCmd
 	{
 	public:
 		struct entry
 		{
 			QString platform ;
-			struct arch{
-				QString archName ;
-				QString exeName ;
-				QStringList exeArgs ;
+			class arch
+			{
+			public:
+				arch( QString a,QString b,QStringList c ) :
+					m_archName( std::move( a ) ),
+					m_exeName( std::move( b ) ),
+					m_exeArgs( std::move( c ) )
+				{
+				}
+				arch( QString a,QString b ) :
+					m_archName( std::move( a ) ),
+					m_exeName( std::move( b ) ),
+					m_exeArgs( m_exeName )
+				{
+				}
+				const QString& archName() const
+				{
+					return m_archName ;
+				}
+				const QString& exeName() const
+				{
+					return m_exeName ;
+				}
+				const QStringList& exeArgs() const
+				{
+					return m_exeArgs ;
+				}
+			private:
+				QString m_archName ;
+				QString m_exeName ;
+				QStringList m_exeArgs ;
 			} ;
-			std::vector< arch > platformData ;
+			using args = std::vector< arch > ;
+			args platformData ;
 		} ;
 		addJsonCmd( QJsonObject& obj ) :
 			m_mainObj( obj )
 		{
 		}
-		void add( const addJsonCmd::entry& e ) ;
+		addJsonCmd& add( const QString& platform,addJsonCmd::entry::args( *function )( const QString& ) )
+		{
+			this->add( { platform,function( platform ) } ) ;
+
+			return *this ;
+		}
+		addJsonCmd& add( const QString& platform,addJsonCmd::entry::args m )
+		{
+			this->add( { platform,std::move( m ) } ) ;
+
+			return *this ;
+		}
 		void done()
 		{
 			m_mainObj.insert( "Cmd",m_obj ) ;
 		}
 	private:
+		void add( const addJsonCmd::entry& e ) ;
 		QJsonObject& m_mainObj ;
 		QJsonObject m_obj ;
 	};
@@ -528,7 +1136,14 @@ namespace utility
 			m_index( index ),m_total( total )
 		{
 		}
-
+		QString total() const
+		{
+			return QString::number( m_total ) ;
+		}
+		QString index() const
+		{
+			return QString::number( m_index ) ;
+		}
 		QString toString( bool,const QStringList& ) const ;
 	private:
 		QString toString( int ) const ;
@@ -544,70 +1159,73 @@ namespace utility
 		settings& stts;
 		const utility::args& args ;
 		const utility::uiIndex& uiIndex ;
-		bool forceDownload ;
 		const QStringList& urls ;
 		const tableWidget::entry& tableEntry ;
 		const Context& ctx ;
 	};
 
+	template< typename Function >
+	void connectQCheckBox( QCheckBox * cb,Function function )
+	{
+		class meaw
+		{
+		public:
+			meaw( Function function ) : m_function( std::move( function ) )
+			{
+			}
+		#if QT_VERSION < QT_VERSION_CHECK( 6,7,0 )
+			static auto stateChanged()
+			{
+				return &QCheckBox::stateChanged ;
+			}
+			void operator()( int s )
+			{
+				m_function( s == static_cast< int >( Qt::CheckState::Checked ) ) ;
+			}
+		#else
+			static auto stateChanged()
+			{
+				return &QCheckBox::checkStateChanged ;
+			}
+			void operator()( Qt::CheckState s )
+			{
+				m_function( s == Qt::CheckState::Checked ) ;
+			}
+		#endif
+		private:
+			Function m_function ;
+		} ;
+
+		QObject::connect( cb,meaw::stateChanged(),meaw( std::move( function ) ) ) ;
+	}
+	template< typename ... qLabel >
+	void alignText( Qt::LayoutDirection m,qLabel ... l )
+	{
+		Qt::Alignment alignment ;
+
+		if( m == Qt::LayoutDirection::LeftToRight ){
+
+			alignment = Qt::AlignmentFlag::AlignRight ;
+		}else{
+			alignment = Qt::AlignmentFlag::AlignLeft ;
+		}
+
+		for( auto s : { l ... } ){
+
+			s->setAlignment( alignment ) ;
+		}
+	}
+
 	QStringList updateOptions( const utility::updateOptionsStruct& ) ;
 
 	bool hasDigitsOnly( const QString& e ) ;
-
-	class contextState
-	{
-	public:
-		contextState() :
-			m_noneAreRunning( true ),
-			m_finishedSuccess( false )
-		{
-		}
-		contextState( bool r ) :
-			m_noneAreRunning( r ),
-			m_finishedSuccess( false )
-		{
-		}
-		contextState( bool r,bool f ) :
-			m_noneAreRunning( r ),
-			m_finishedSuccess( f )
-		{
-		}
-		bool noneAreRunning() const
-		{
-			return m_noneAreRunning ;
-		}
-		bool finishedSuccess() const
-		{
-			return m_finishedSuccess ;
-		}
-		bool showLogWindow() const
-		{
-			return m_showLogWindow ;
-		}
-		void setShowLogWindow()
-		{
-			m_showLogWindow = true ;
-		}
-		bool clear() const
-		{
-			return m_clear ;
-		}
-		void setClear()
-		{
-			m_clear = true ;
-		}
-	private:
-		bool m_noneAreRunning ;
-		bool m_finishedSuccess ;
-		bool m_showLogWindow = false ;
-		bool m_clear = false ;
-	};
 
 	enum class PlayListButtonName{ DownloadRange,PlaylistUrl,None } ;
 	template< typename Settings,typename TabName,typename Function >
 	bool showHistory( QLineEdit& lineEdit,
 			  const QStringList& history,
 			  Settings& settings,
+			  const QString& engineName,
 			  TabName tabName,
 			  Function function,
 			  PlayListButtonName pbn = PlayListButtonName::None )
@@ -628,13 +1246,13 @@ namespace utility
 
 					if( pbn == utility::PlayListButtonName::None ){
 
-						settings.clearOptionsHistory( tabName ) ;
+						settings.clearOptionsHistory( tabName,engineName ) ;
 
 					}else if( pbn == utility::PlayListButtonName::DownloadRange ){
 
-						settings.clearPlaylistRangeHistory() ;
+						settings.clearPlaylistRangeHistory( engineName ) ;
 					}else{
-						settings.clearPlaylistUrlHistory() ;
+						settings.clearPlaylistUrlHistory( engineName ) ;
 					}
 				}else{
 					s = true ;
@@ -678,10 +1296,11 @@ namespace utility
 	bool showHistory( QLineEdit& lineEdit,
 			  const QStringList& history,
 			  Settings& settings,
+			  const QString& engineName,
 			  TabName tabName,
 			  PlayListButtonName pbn = PlayListButtonName::None )
 	{
-		return utility::showHistory( lineEdit,history,settings,tabName,[]( QMenu& ){},pbn ) ;
+		return utility::showHistory( lineEdit,history,settings,engineName,tabName,[]( QMenu& ){},pbn ) ;
 	}
 
 	template< typename Function,typename AddAction >
@@ -720,82 +1339,121 @@ namespace utility
 		addAction( ac,forceDownload,row ) ;
 	}
 
-	template< typename Function,typename FunctionHideUnHide >
-	void appendContextMenu( QMenu& m,
-				utility::contextState c,
-				const Function& function,
-				bool showClear,
-				const FunctionHideUnHide& hideUnHide )
+	template< typename Actions >
+	void appendContextMenu( QMenu& m,Actions acts )
 	{
-		auto ac = m.addAction( QObject::tr( "Show Log Window" ) ) ;
+		class actions
+		{
+		public:
+			actions( Actions& acs,QMenu& m ) : m_actions( acs ),m_menu( m )
+			{
+			}
+			void add( const QString& txt,void( Actions::*method )(),bool enabled = true )
+			{
+				auto ac = m_menu.addAction( txt ) ;
 
-		QObject::connect( ac,&QAction::triggered,[ &function,&c ](){
+				ac->setEnabled( enabled ) ;
 
-			c.setShowLogWindow() ;
+				m_methods.emplace_back( ac,method ) ;
+			}
+			void exec()
+			{
+				auto ac = m_menu.exec( QCursor::pos() ) ;
 
-			function( c ) ;
-		} ) ;
+				for( const auto& it : m_methods ){
 
-		hideUnHide() ;
+					if( it.ac == ac ){
 
-		if( showClear ){
+						auto method = it.method ;
 
-			ac = m.addAction( QObject::tr( "Clear" ) ) ;
+						( m_actions.*method )() ;
+					}
+				}
+			}
+			void hideUnhide()
+			{
+				m_actions.hideUnhide() ;
+			}
+			bool batchDownloader()
+			{
+				return m_actions.batchDownloader() ;
+			}
+			bool showClear()
+			{
+				return m_actions.showClear() ;
+			}
+			bool noneAreRunning()
+			{
+				return m_actions.noneAreRunning() ;
+			}
+		private:
+			struct methods
+			{
+				methods( QAction * a,void( Actions::*m )() ) :
+					ac( a ),method( m )
+				{
+				}
+				QAction * ac ;
+				void( Actions::*method )() ;
+			} ;
 
-			ac->setEnabled( c.noneAreRunning() ) ;
+			std::vector< methods > m_methods ;
+			Actions& m_actions ;
+			QMenu& m_menu ;
+		} ;
 
-			QObject::connect( ac,&QAction::triggered,[ &function,&c ](){
+		actions ac( acts,m ) ;
 
-				c.setClear() ;
+		ac.add( QObject::tr( "Show Log Window" ),&Actions::showLogWindow ) ;
 
-				function( c ) ;
-			} ) ;
+		ac.add( QObject::tr( "Show Download History" ),&Actions::showDowmloadHistoryWindow ) ;
+
+		ac.hideUnhide() ;
+
+		if( ac.batchDownloader() ){
+
+			ac.add( QObject::tr( "Show/Hide Controls" ),&Actions::showHide ) ;
+
+			ac.add( QObject::tr( "Paste Clipboard Url" ),&Actions::pasteClipboard ) ;
 		}
 
-		m.exec( QCursor::pos() ) ;
-	}
+		if( ac.showClear() ){
 
-	template< typename Function >
-	void appendContextMenu( QMenu& m,utility::contextState c,const Function& function,bool showClear )
-	{
-		utility::appendContextMenu( m,c,function,showClear,[](){} ) ;
-	}
+			ac.add( QObject::tr( "Clear" ),&Actions::clear,ac.noneAreRunning() ) ;
+		}
 
-	template< typename Function >
-	void appendContextMenu( QMenu& m,
-				utility::contextState c,
-				const Function& function,
-				bool showClear,
-				int row,
-				tableWidget& table )
-	{
-		utility::appendContextMenu( m,c,function,showClear,[ & ](){
-
-			utility::hideUnhideEntries( m,table,row,false ) ;
-		} ) ;
+		ac.exec() ;
 	}
 
 	class selectedAction
 	{
 	public:
-		static const char * CLEARSCREEN ;
-		static const char * CLEAROPTIONS ;
-		static const char * OPENFOLDER ;
-
+		static const char * clearScreenText()
+		{
+			return "Clear Screen" ;
+		}
+		static const char * clearOptionsText()
+		{
+			return "Clear Options" ;
+		}
+		static const char * openFolderText()
+		{
+			return "Open Download Folder" ;
+		}
 		selectedAction( QAction * ac ) : m_ac( ac )
 		{
 		}
 		bool clearOptions() const
 		{
-			return m_ac->objectName() == utility::selectedAction::CLEAROPTIONS ;
+			return m_ac->objectName() == utility::selectedAction::clearOptionsText() ;
 		}
 		bool clearScreen() const
 		{
-			return m_ac->objectName() == utility::selectedAction::CLEARSCREEN ;
+			return m_ac->objectName() == utility::selectedAction::clearScreenText() ;
 		}
 		bool openFolderPath() const
 		{
-			return m_ac->objectName() == utility::selectedAction::OPENFOLDER ;
+			return m_ac->objectName() == utility::selectedAction::openFolderText() ;
 		}
 		QString text() const
 		{
@@ -856,12 +1514,24 @@ namespace utility
 		template< typename Fnt >
 		void connect( Fnt function )
 		{
-			auto fnt = [ this,function = std::move( function ) ]( int index ){
-
-				function( m_function,index ) ;
+			class meaw
+			{
+			public:
+				meaw( Fnt function,Conn& conn ) :
+					m_function( std::move( function ) ),
+					m_parent( conn )
+				{
+				}
+				auto operator()( int index )
+				{
+					return m_function( m_parent.m_function,index ) ;
+				}
+			private:
+				Fnt m_function ;
+				Conn& m_parent ;
 			} ;
 
-			m_conn = m_functionConnect( std::move( fnt ) ) ;
+			m_conn = m_functionConnect( meaw( std::move( function ),*this ) ) ;
 		}
 		void disconnect()
 		{
@@ -877,12 +1547,6 @@ namespace utility
 		QMetaObject::Connection m_conn ;
 	};
 
-	template< typename Function,typename FunctionConnect >
-	utility::Conn< Function,FunctionConnect > make_conn( Function f,FunctionConnect c )
-	{
-		return utility::Conn< Function,FunctionConnect >( std::move( f ),std::move( c ) ) ;
-	}
-
 	class Terminator : public QObject
 	{
 		Q_OBJECT
@@ -890,37 +1554,27 @@ namespace utility
 		template< typename Object,typename Member >
 		auto setUp( Object obj,Member member,int idx )
 		{
-			return utility::make_conn( []( const engines::engine& engine,QProcess& exe,int index,int idx ){
+			struct meaw
+			{
+				bool operator()( const engines::engine& engine,QProcess& exe,int index,int idx )
+				{
+					return utility::Terminator::terminate( engine,exe,index,idx ) ;
+				}
+			} ;
 
-				return utility::Terminator::terminate( engine,exe,index,idx ) ;
-
-			},[ idx,obj,member,this ]( auto function ){
-
-				Q_UNUSED( this ) //Older version of gcc seems to require capturing "this".
-
-				return QObject::connect( obj,member,[ idx,function = std::move( function ) ](){
-
-					function( idx ) ;
-				} ) ;
-			} ) ;
+			return this->make_conn( meaw(),twiga< Object,Member >( obj,member,idx ) ) ;
 		}
 		auto setUp()
 		{
-			return utility::make_conn( []( const engines::engine& engine,QProcess& exe,int index,int idx ){
+			struct meaw
+			{
+				bool operator()( const engines::engine& engine,QProcess& exe,int index,int idx )
+				{
+					return utility::Terminator::terminate( engine,exe,index,idx ) ;
+				}
+			} ;
 
-				return utility::Terminator::terminate( engine,exe,index,idx ) ;
-
-			},[ this ]( auto function ){
-
-				using e = void( Terminator::* )( int ) ;
-
-				auto m = static_cast< e >( &utility::Terminator::terminate ) ;
-
-				return QObject::connect( this,m,[ function = std::move( function ) ]( int index ){
-
-					function( index ) ;
-				} ) ;
-			} ) ;
+			return this->make_conn( meaw(),woof( *this ) ) ;
 		}
 		void terminateAll( QTableWidget& t )
 		{
@@ -932,6 +1586,77 @@ namespace utility
 	signals :
 		void terminate( int index ) ;
 	private:
+		template< typename Function,typename FunctionConnect >
+		utility::Conn< Function,FunctionConnect > make_conn( Function f,FunctionConnect c )
+		{
+			return utility::Conn< Function,FunctionConnect >( std::move( f ),std::move( c ) ) ;
+		}
+		class woof
+		{
+		public:
+			woof( Terminator& parent ) : m_parent( parent )
+			{
+			}
+			template< typename Function >
+			auto operator()( Function function )
+			{
+				using e = void( Terminator::* )( int ) ;
+
+				auto m = static_cast< e >( &utility::Terminator::terminate ) ;
+
+				class foo
+				{
+				public:
+					foo( Function function ) : m_function( std::move( function ) )
+					{
+					}
+					void operator()( int index )
+					{
+						m_function( index ) ;
+					}
+				private:
+					Function m_function ;
+				} ;
+
+				return QObject::connect( &m_parent,m,foo( std::move( function ) ) ) ;
+			}
+		private:
+			Terminator& m_parent ;
+		} ;
+		template< typename Object,typename Member >
+		class twiga
+		{
+		public:
+			twiga( Object obj,Member member,int idx ) :
+				m_obj( obj ),m_member( member ),m_idx( idx )
+			{
+			}
+			template< typename Function >
+			auto operator()( Function function )
+			{
+				class foo
+				{
+				public:
+					foo( int idx,Function function ) :
+						m_idx( idx ),m_function( std::move( function ) )
+					{
+					}
+					void operator()()
+					{
+						m_function( m_idx ) ;
+					}
+				private:
+					int m_idx ;
+					Function m_function ;
+				} ;
+
+				return QObject::connect( m_obj,m_member,foo( m_idx,std::move( function ) ) ) ;
+			}
+		private:
+			Object m_obj ;
+			Member m_member ;
+			int m_idx ;
+		} ;
 		static bool terminate( QProcess& ) ;
 		static bool terminate( const engines::engine&,QProcess& exe,int index,int idx )
 		{
@@ -960,7 +1685,7 @@ namespace utility
 		if( cb.count() > 0 ){
 
 			cb.setCurrentIndex( 0 ) ;
-			s.setDefaultEngine( d,t ) ;
+			s.setDefaultEngine( cb.currentText(),t ) ;
 		}
 	}
 
@@ -989,14 +1714,16 @@ namespace utility
 		QProcess::ProcessChannel m_channel ;
 	} ;
 
-	template< typename TLogger,typename Events,typename Connection >
+	template< typename AppCtx,typename TLogger,typename Events,typename Connection >
 	class context
 	{
 	public:
 		context( ProcessOutputChannels channels,
 			 TLogger logger,
 			 Events events,
-			 Connection&& conn ) :
+			 Connection&& conn,
+			 const AppCtx& appCtx ) :
+			m_appCtx( appCtx ),
 			m_logger( logger.move() ),
 			m_events( events.move() ),
 			m_conn( conn.move() ),
@@ -1010,9 +1737,20 @@ namespace utility
 		{
 			m_events.disableAll() ;
 
-			exe.setProcessEnvironment( m_engine.processEnvironment() ) ;
+			auto mm = "cmd: " + m_engine.commandString( m_cmd ) ;
 
-			m_logger.add( "cmd: " + m_engine.commandString( m_cmd ) ) ;
+			if( m_envExtra.isEmpty() ){
+
+				exe.setProcessEnvironment( m_engine.processEnvironment() ) ;
+			}else{
+				const auto& m = m_engine.processEnvironment() ;
+
+				exe.setProcessEnvironment( m_envExtra.update( m,mm ) ) ;
+			}			
+
+			m_logger.add( mm ) ;
+
+			m_events.printOutPut( mm.toUtf8() + "\n" ) ;
 
 			const auto& df = m_events.downloadFolder() ;
 
@@ -1073,7 +1811,7 @@ namespace utility
 				m_engine.processData( e,d,id,s ) ;
 			} ) ;
 
-			m_events.done( state.move() ) ;
+			m_events.done( state.move(),m_logger.fileNames() ) ;
 
 			m_logger.registerDone() ;
 		}
@@ -1092,7 +1830,7 @@ namespace utility
 					m_engine.processData( e,d,id,s ) ;
 				} ) ;
 
-				m_events.done( state ) ;
+				m_events.done( state,{} ) ;
 			}
 		}
 		void withData( QProcess::ProcessChannel channel,const QByteArray& data )
@@ -1127,7 +1865,32 @@ namespace utility
 		}
 		const engines::engine::exeArgs::cmd& cmd( const QStringList& args )
 		{
-			m_cmd = { m_engine.exePath(),args } ;
+			const auto& mm = m_appCtx.Engines().networkProxy() ;
+
+			if( mm.isSet() ){
+
+				QStringList m ;
+
+				m_engine.setProxySetting( m_envExtra,m,mm.networkProxyString() ) ;
+
+				if( m_engine.hasConvertArgToEnv( args ) ){
+
+					auto a = m_engine.convertArgToEnv( m_envExtra,args ) ;
+
+					m_cmd = { m_engine.exePath(),m + a } ;
+				}else{
+					m_cmd = { m_engine.exePath(),m + args } ;
+				}
+			}else{
+				if( m_engine.hasConvertArgToEnv( args ) ){
+
+					auto a = m_engine.convertArgToEnv( m_envExtra,args ) ;
+
+					m_cmd = { m_engine.exePath(),a } ;
+				}else{
+					m_cmd = { m_engine.exePath(),args } ;
+				}
+			}
 
 			return m_cmd ;
 		}
@@ -1179,6 +1942,8 @@ namespace utility
 			const QByteArray& m_data ;
 		} ;
 
+		engines::engine::baseEngine::optionsEnvironment m_envExtra ;
+		const AppCtx& m_appCtx ;
 		QString m_credentials ;
 		engines::engine::exeArgs::cmd m_cmd ;
 		TLogger m_logger ;
@@ -1187,20 +1952,21 @@ namespace utility
 		ProcessOutputChannels m_channels ;
 		const engines::engine& m_engine ;
 		std::unique_ptr< QTimer > m_timer ;
-		engines::engine::functions::timer m_timeCounter ;
+		engines::engine::baseEngine::timer m_timeCounter ;
 		QByteArray m_data ;
 		bool m_cancelled ;
 	} ;
 
-	template< typename Connection,typename Logger,typename Events >
-	auto make_ctx( Events events,
+	template< typename AppCtx,typename Connection,typename Logger,typename Events >
+	auto make_ctx( const AppCtx& appCtx,
+		       Events events,
 		       Logger logger,
 		       Connection conn,
 		       utility::ProcessOutputChannels channels )
 	{
-		using ctx = utility::context< Logger,Events,Connection > ;
+		using ctx = utility::context< AppCtx,Logger,Events,Connection > ;
 
-		return ctx( channels,logger.move(),events.move(),conn.move() ) ;
+		return ctx( channels,logger.move(),events.move(),conn.move(),appCtx ) ;
 	}
 
 	template< typename Ctx >
@@ -1212,77 +1978,145 @@ namespace utility
 
 		utils::qprocess::run( cmd.exe(),cmd.args(),ctx.move() ) ;
 	}
+	struct downloadTrackerOpts
+	{
+		downloadTrackerOpts( const utility::downLoadOptions& a,
+				    const utility::uiIndex& b,
+				    const tableWidget::entry& d ) :
+		    downloadOpts( a ),
+		    uiIndex( b ),
+		    entry( d )
+		{
+		}
+		utility::downLoadOptions downloadOpts ;
+		utility::uiIndex uiIndex ;
+		tableWidget::entry entry ;
+	} ;
+	template< typename Options,typename Logger,typename TermSignal,typename OptionUpdater,typename Ctx >
+	static void download( const engines::engine& engine,
+			     const OptionUpdater& optsUpdater,
+			     const QString& uiDownloadOptions,
+			     const QString& url,
+			     const Ctx& ctx,
+			     const downloadTrackerOpts& dOpts,
+			     TermSignal term,
+			     Options opts,
+			     Logger logger,
+			     utility::ProcessOutputChannels channel = utility::ProcessOutputChannels() )
+	{
+		utility::args args( uiDownloadOptions,dOpts.downloadOpts.downloadOptions,engine ) ;
 
-	template< typename List,
-		  std::enable_if_t< std::is_lvalue_reference< List >::value,int > = 0 >
-	class reverseIterator
+		const auto& a = dOpts.downloadOpts ;
+		const auto& b = engine ;
+		auto& c = ctx.Settings() ;
+		const auto& d = dOpts.uiIndex ;
+
+		utility::updateOptionsStruct opt{ a,b,c,args,d,{ url },dOpts.entry,ctx } ;
+
+		auto m = utility::make_ctx( ctx,opts.move(),logger.move(),term.move(),channel ) ;
+
+		auto u = optsUpdater( utility::updateOptions( opt ) ) ;
+
+		utility::run( std::move( u ),args.credentials(),m.move() ) ;
+	}
+
+	template< typename Iter,typename ValueType >
+	class iterator
 	{
 	public:
-		typedef typename std::remove_reference_t< std::remove_cv_t< List > >::value_type value_type ;
-		typedef typename std::remove_reference_t< std::remove_cv_t< List > >::size_type size_type ;
-
-	        reverseIterator( List s ) :
-		        m_list( s ),
-			m_index( m_list.size() - 1 )
+		iterator( Iter it ) : m_iter( std::move( it ) )
 		{
 		}
 		bool hasNext() const
 		{
-			return m_index > -1 ;
+			return m_iter.hasNext() ;
 		}
-		void reset()
+		decltype( auto ) next()
 		{
-			m_index = m_list.size() - 1 ;
-		}
-		auto& next()
-		{
-			return m_list[ this->nextValue() ] ;
-		}
-		auto nextAsValue()
-		{
-			return m_list[ this->nextValue() ] ;
+			return m_iter.next() ;
 		}
 		template< typename Function,
-			  util::types::has_bool_return_type< Function,typename reverseIterator< List >::value_type > = 0 >
-		void forEach( Function function )
+			  util::types::has_bool_return_type< Function,ValueType > = 0 >
+		void forEach( const Function& function )
 		{
 			while( this->hasNext() ){
 
-				if( function( m_list[ this->nextValue() ] ) ){
+				if( function( this->next() ) ){
 
 					break ;
 				}
 			}
 		}
 		template< typename Function,
-			  util::types::has_void_return_type< Function,typename reverseIterator< List >::value_type > = 0 >
-		void forEach( Function function )
+			  util::types::has_void_return_type< Function,ValueType > = 0 >
+		void forEach( const Function& function )
 		{
 			while( this->hasNext() ){
 
-				function( m_list[ this->nextValue() ] ) ;
+				function( this->next() ) ;
 			}
 		}
 	private:
-		auto nextValue()
-		{
-			return static_cast< typename reverseIterator< List >::size_type >( m_index-- ) ;
-		}
-		List m_list ;
-		int m_index ;
+		Iter m_iter ;
 	} ;
 
-	template< typename List >
-	auto reverse( List&& l )
+	template< typename Type >
+	auto reverseIterator( const Type& type )
 	{
-		return reverseIterator< decltype( l ) >( std::forward< List >( l ) ) ;
+		class meaw
+		{
+		public:
+			meaw( const Type& t ) : m_type( t ),m_it( static_cast< int >( t.size() ) - 1 )
+			{				
+			}
+			bool hasNext() const
+			{
+				return m_it > -1 ;
+			}
+			decltype( auto ) next()
+			{
+				return m_type[ m_it-- ] ;
+			}
+		private:
+			const Type& m_type ;
+			int m_it ;
+		} ;
+
+		return utility::iterator< meaw,typename Type::value_type >( type ) ;
 	}
+
+	template< typename Type >
+	auto forwardIterator( const Type& type )
+	{
+		class meaw
+		{
+		public:
+			meaw( const Type& t ) : m_type( t ),m_it( 0 )
+			{				
+			}
+			bool hasNext() const
+			{
+				return m_it < static_cast< int >( m_type.size() ) ;
+			}
+			decltype( auto ) next()
+			{
+				return m_type[ m_it++ ] ;
+			}
+		private:
+			const Type& m_type ;
+			int m_it ;
+		} ;
+
+		return utility::iterator< meaw,typename Type::value_type >( type ) ;
+	}
+
 	class MediaEntry
 	{
 	public:
 		MediaEntry()
 		{
 		}
+		MediaEntry( const QJsonDocument& doc ) ;
 		MediaEntry( const QString& url ) :
 			m_url( url ),
 			m_json( QByteArray() )
@@ -1298,10 +2132,18 @@ namespace utility
 		{
 			return std::move( *this ) ;
 		}
-		MediaEntry( const QByteArray& data ) ;
+		MediaEntry( const QString& url,const engines::engine&,const QByteArray& data ) ;
 
 		QString uiText() const ;
 
+		void setShowFirst()
+		{
+			m_showFirst = true ;
+		}
+		bool showFirst() const
+		{
+			return m_showFirst ;
+		}
 		const QString& thumbnailUrl() const
 		{
 			return m_thumbnailUrl ;
@@ -1367,6 +2209,14 @@ namespace utility
 		{
 			return m_playlist_title ;
 		}
+		const QString& referer() const
+		{
+			return m_referer ;
+		}
+		const QString& user_agent() const
+		{
+			return m_userAgent ;
+		}
 		const QString& playlist_uploader_id() const
 		{
 			return m_playlist_uploader_id ;
@@ -1375,13 +2225,28 @@ namespace utility
 		{
 			return m_n_entries ;
 		}
+		void setUrl( const QString& e )
+		{
+			m_url = e ;
+		}
 	private:
+		void parseJson() ;
+		QString stringValue( QJsonObject& obj,const char * key )
+		{
+			return obj.value( key ).toString().replace( "\"NA\"","NA" ) ;
+		}
+		QString intValue( QJsonObject& obj,const char * key )
+		{
+			return QString::number( obj.value( key ).toInt() ) ;
+		}
 		QString m_thumbnailUrl ;
 		QString m_title ;
 		QString m_uploadDate ;
 		QString m_url ;
 		QString m_duration ;
 		QString m_id ;
+		QString m_referer ;
+		QString m_userAgent ;
 		QString m_uploader ;
 		QString m_playlist ;
 		QString m_playlist_count ;
@@ -1392,8 +2257,10 @@ namespace utility
 		QString m_n_entries ;
 
 		QJsonArray m_formats ;
-		int m_intDuration ;
+		int m_intDuration = 0 ;
 		util::Json m_json ;
+
+		bool m_showFirst = false ;
 	} ;
 
 	class networkReply
@@ -1406,30 +2273,19 @@ namespace utility
 		{
 			this->getData( ctx,reply ) ;
 		}
-		networkReply( QObject * obj,
-			      const char * member,
-			      tableWidget * t,
-			      int id,
-			      utility::MediaEntry m ) :
+		networkReply( int id,utility::MediaEntry m ) :
 			m_id( id ),
-			m_mediaEntry( m.move() ),
-			m_table( t )
+			m_mediaEntry( m.move() )
 		{
-			this->invoke( obj,member ) ;
 		}
-		networkReply( QObject * obj,
-			      const char * member,
-			      const Context& ctx,
+		networkReply( const Context& ctx,
 			      const utils::network::reply& reply,
-			      tableWidget * t,
 			      int id,
 			      utility::MediaEntry m ) :
 			m_id( id ),
-			m_mediaEntry( m.move() ),
-			m_table( t )
+			m_mediaEntry( m.move() )
 		{
 			this->getData( ctx,reply ) ;
-			this->invoke( obj,member ) ;
 		}
 		const QByteArray& data() const
 		{
@@ -1439,10 +2295,6 @@ namespace utility
 		{
 			return !m_data.isEmpty() ;
 		}
-		int id() const
-		{
-			return m_id ;
-		}
 		int index() const
 		{
 			return m_id ;
@@ -1451,27 +2303,25 @@ namespace utility
 		{
 			return m_mediaEntry ;
 		}
-		tableWidget& table() const
-		{
-			return *m_table ;
-		}
 	private:
-		void invoke( QObject *,const char * ) ;
 		void getData( const Context& ctx,const utils::network::reply& ) ;
 		QByteArray m_data ;
 		int m_id ;
 		utility::MediaEntry m_mediaEntry ;
-		tableWidget * m_table ;
 	};
 
 	template< typename FinishedState >
 	void updateFinishedState( const engines::engine& engine,
 				  settings& s,
 				  tableWidget& table,
-				  const FinishedState& f )
+				  const QString& tabName,
+				  const FinishedState& f,
+				  const std::vector< QByteArray >& fileNames )
 	{
 		const auto& index = f.index() ;
 		const auto& es = f.exitState() ;
+
+		table.setFileNames( index,fileNames ) ;
 
 		table.setRunningState( f.setState(),index ) ;
 
@@ -1481,13 +2331,13 @@ namespace utility
 
 		auto a = table.uiText( index ) ;
 
-		table.setUiText( engine.updateTextOnCompleteDownlod( a,backUpUrl,ss,es ),index ) ;
+		table.setUiText( engine.updateTextOnCompleteDownlod( a,backUpUrl,ss,tabName,es ),index ) ;
 
 		if( !es.cancelled() ){
 
 			if( es.success() ){
 
-				engine.runCommandOnDownloadedFile( a,backUpUrl ) ;
+				engine.runCommandOnDownloadedFile( fileNames ) ;
 			}
 
 			if( f.done() ){
@@ -1496,7 +2346,7 @@ namespace utility
 
 				if( !a.isEmpty() ){
 
-					auto args = util::split( a,' ',true ) ;
+					auto args = util::splitPreserveQuotes( a ) ;
 
 					auto exe = args.takeAt( 0 ) ;
 

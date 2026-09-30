@@ -52,14 +52,6 @@
         <translation>URL playlist:</translation>
     </message>
     <message>
-        <source>Remove A Plugin</source>
-        <translation>Rimuovi plugin</translation>
-    </message>
-    <message>
-        <source>Add a Plugin</source>
-        <translation>Aggiungi plugin</translation>
-    </message>
-    <message>
         <source>Engine&apos;s Name</source>
         <translation>Nome engine</translation>
     </message>
@@ -74,10 +66,6 @@
     <message>
         <source>Download Options</source>
         <translation>Opzioni download</translation>
-    </message>
-    <message>
-        <source>Dark Theme(Need A Restart)</source>
-        <translation>Tema interfaccia (richiede riavvio)</translation>
     </message>
     <message>
         <source>Engine Name:</source>
@@ -134,10 +122,6 @@
     <message>
         <source>Reset Option To Its Default</source>
         <translation>Ripristina opzioni a valori predefiniti</translation>
-    </message>
-    <message>
-        <source>Path To Cookie FIle</source>
-        <translation>Percorso file cookie</translation>
     </message>
     <message>
         <source>Refresh</source>
@@ -212,12 +196,8 @@
         <translation>Imposta quale URL deve essere gestita da quale motore</translation>
     </message>
     <message>
-        <source>Scale Factor(Need A Restart)</source>
-        <translation>Fattore di scala (richiede riavvio)</translation>
-    </message>
-    <message>
         <source>Paste Clipboard Url</source>
-        <translation>Inolla URL dagli Appunti</translation>
+        <translation>Incolla URL dagli Appunti</translation>
     </message>
     <message>
         <source>Monitor Clipboard For Url</source>
@@ -256,14 +236,6 @@
         <translation>Imposta opzioni download</translation>
     </message>
     <message>
-        <source>Enable Library Tab(May Cause The UI To Freeze For A Very Long TIme If Download Folder Has Too Many Entries)</source>
-        <translation>Abilita scheda Libreria (può causare il blocco dell&apos;interfaccia utente per molto tempo se la cartella di download ha troppe voci)</translation>
-    </message>
-    <message>
-        <source>Update Plugin</source>
-        <translation>Aggiorna plugin</translation>
-    </message>
-    <message>
         <source>Text Encoding</source>
         <translation>Codifica testo</translation>
     </message>
@@ -290,10 +262,6 @@
     <message>
         <source>Website</source>
         <translation>Sito web</translation>
-    </message>
-    <message>
-        <source>Show MetaData In Batch Downloader Tab</source>
-        <translation>Visualizza metadati nella scheda Batch Downloader</translation>
     </message>
     <message>
         <source>Maximum Concurrent Downloads</source>
@@ -337,7 +305,7 @@ Esempio 2: ${gateway}:8080</translation>
     </message>
     <message>
         <source>Show Version Info And Latest Version Info</source>
-        <translation>Visualizza info versione auttaule e più recente</translation>
+        <translation>Visualizza info versione attuale e più recente</translation>
     </message>
     <message>
         <source>Show Version Info Only</source>
@@ -349,7 +317,136 @@ Esempio 2: ${gateway}:8080</translation>
     </message>
     <message>
         <source>Actions At Startup</source>
-        <translation>Azioni all&apos;avviodel programma</translation>
+        <translation>Azioni all&apos;avvio del programma</translation>
+    </message>
+    <message>
+        <source>File Size</source>
+        <translation>Dim. file</translation>
+    </message>
+    <message>
+        <source>Play Downloaded Media</source>
+        <translation>Riproduci i contenuti multimediali scaricati</translation>
+    </message>
+    <message>
+        <source>Rename</source>
+        <translation>Rinomina</translation>
+    </message>
+    <message>
+        <source>Enter Playlist Url. To Add Multiple Playlists, Separate Them With A Space Or New Line</source>
+        <translation>Inserisci l&apos;URLplaylist. 
+Per aggiungere più playlist, separale con uno spazio o una nuova riga</translation>
+    </message>
+    <message>
+        <source>Rename File To Below Text</source>
+        <translation>Rinomina il file qui sotto il testo</translation>
+    </message>
+    <message>
+        <source>A Button To Open A Folder To Be Used As A Download Folder</source>
+        <translation>Un pulsante per aprire una cartella da usare come cartella di download</translation>
+    </message>
+    <message>
+        <source>A Button To Open A Folder Where Theme Config Files Are Stored</source>
+        <translation>Un pulsante per aprire una cartella in cui sono archiviati i file di configurazione tema</translation>
+    </message>
+    <message>
+        <source>A Button To Open A Folder Where Extension&apos;s Binaries Are Stored</source>
+        <translation>Un pulsante per aprire una cartella in cui sono archiviati i file binari dell&apos;estensione</translation>
+    </message>
+    <message>
+        <source>Are You Sure You Want To Reset These Options To Their Defaults?</source>
+        <translation>Vuoi reimpostare queste opzioni ai valori predefiniti?</translation>
+    </message>
+    <message>
+        <source>No</source>
+        <translation>No</translation>
+    </message>
+    <message>
+        <source>Yes</source>
+        <translation>Sì</translation>
+    </message>
+    <message>
+        <source>Name Of Web Browser To Get Cookies From</source>
+        <translation>Nome del browser web usato per ottenere i cookie</translation>
+    </message>
+    <message>
+        <source>Theme(Need A Restart)</source>
+        <translation>Interfaccia (richiede riavvio)</translation>
+    </message>
+    <message>
+        <source>Switch Between Setting Browser Name And Path To Cookie File</source>
+        <translation>Switch tra il nome del browser ed il percorso del file cookie</translation>
+    </message>
+    <message>
+        <source>Show MetaData In Batch Downloader</source>
+        <translation>Visualizza metadati in downloader batch</translation>
+    </message>
+    <message>
+        <source>Auto Download Added Entries In Batch Downloader</source>
+        <translation>Download automatico elementi aggiunti in downloader batch</translation>
+    </message>
+    <message>
+        <source>Notify When Download Completes</source>
+        <translation>Notifica a download completato</translation>
+    </message>
+    <message>
+        <source>Notify When All Downloads Complete</source>
+        <translation>Notifica quando tutti i download sono stati completati</translation>
+    </message>
+    <message>
+        <source>Engine&apos;s Options</source>
+        <translation>Opzioni engine</translation>
+    </message>
+    <message>
+        <source>Extensions</source>
+        <translation>Estensioni</translation>
+    </message>
+    <message>
+        <source>Remove An Extension</source>
+        <translation>Rimuovi un&apos;estensione</translation>
+    </message>
+    <message>
+        <source>Update An Extension</source>
+        <translation>Aggiorna un&apos;estensione</translation>
+    </message>
+    <message>
+        <source>Add An Extension</source>
+        <translation>Aggiungi un&apos;estensione</translation>
+    </message>
+    <message>
+        <source>Open Binary Folder</source>
+        <translation>Apri cartella eseguibile</translation>
+    </message>
+    <message>
+        <source>Open Extension Folder</source>
+        <translation>Apri cartella estensione</translation>
+    </message>
+    <message>
+        <source>UI Scale</source>
+        <translation>Scala UI</translation>
+    </message>
+    <message>
+        <source>A Restart Is Required After Every Change</source>
+        <translation>Dopo ogni modifica è necessario un riavvio</translation>
+    </message>
+    <message>
+        <source>Scale Up</source>
+        <translation>Aumenta scala</translation>
+    </message>
+    <message>
+        <source>Scale Down</source>
+        <translation>Diminuisci scala</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Ripristina</translation>
+    </message>
+    <message>
+        <source>Use Deno From System If Available</source>
+        <translation>Usa Deno dal sistema se disponibile</translation>
+    </message>
+    <message>
+        <source>Use Extension From System If Available</source>
+        <translation>Usa estensione dal sistema se disponibile</translation>
     </message>
 </context>
 <context>
@@ -439,10 +536,6 @@ Esempio 2: ${gateway}:8080</translation>
         <translation>2. Vai alla scheda &quot;Opzioni generali&quot;.</translation>
     </message>
     <message>
-        <source>Author</source>
-        <translation>Autore</translation>
-    </message>
-    <message>
         <source>Japanese (Japan)</source>
         <translation>Giapponese (Giappone)</translation>
     </message>
@@ -459,16 +552,12 @@ Esempio 2: ${gateway}:8080</translation>
         <translation>Download annullato</translation>
     </message>
     <message>
-        <source>Completed: %1%, Not Started: %2, Succeeded: %3, Failed: %4, Cancelled: %5</source>
-        <translation>Completati: %1%, non avviati: %2, corretti: %3, falliti: %4, annullati: %5</translation>
-    </message>
-    <message>
         <source>Download completed</source>
         <translation>Download completato</translation>
     </message>
     <message>
         <source>Spanish (Spain)</source>
-        <translation>Spagnologo (Spagna)</translation>
+        <translation>Spagnolo (Spagna)</translation>
     </message>
     <message>
         <source>Polish (Poland)</source>
@@ -477,10 +566,6 @@ Esempio 2: ${gateway}:8080</translation>
     <message>
         <source>Download</source>
         <translation>Download</translation>
-    </message>
-    <message>
-        <source>Checking installed version of</source>
-        <translation>Controllo versione installata di</translation>
     </message>
     <message>
         <source>Failed to find executable &quot;%1&quot;</source>
@@ -516,11 +601,7 @@ Esempio 2: ${gateway}:8080</translation>
     </message>
     <message>
         <source>Failed to parse json file from github</source>
-        <translation>Impossibile analizzare il file json da github</translation>
-    </message>
-    <message>
-        <source>Renaming file to: </source>
-        <translation>Rinomina file in: </translation>
+        <translation>Impossibile analizzare il file json da Github</translation>
     </message>
     <message>
         <source>Turkish (Turkey)</source>
@@ -532,7 +613,7 @@ Esempio 2: ${gateway}:8080</translation>
     </message>
     <message>
         <source>Resetting download folder to default</source>
-        <translation>Ripristino valore rpedefinito cartella download</translation>
+        <translation>Ripristino valore predefinito cartella download</translation>
     </message>
     <message>
         <source>Failed to find python3 executable for backend &quot;%1&quot;</source>
@@ -580,15 +661,11 @@ Esempio 2: ${gateway}:8080</translation>
     </message>
     <message>
         <source>Save Subtitle To File</source>
-        <translation>Salva sottoitolo nel file</translation>
+        <translation>Salva sottotitolo nel file</translation>
     </message>
     <message>
         <source>Extracting archive: </source>
         <translation>Estrazione archivio: </translation>
-    </message>
-    <message>
-        <source>Normal</source>
-        <translation>Tema normale</translation>
     </message>
     <message>
         <source>Dark</source>
@@ -603,18 +680,12 @@ Esempio 2: ${gateway}:8080</translation>
         <translation>Italiano (Italia)</translation>
     </message>
     <message>
-        <source>Qt Version</source>
-        <translation>Versione Qt</translation>
-    </message>
-    <message>
         <source>This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.</source>
-        <translation>Questo programma è un software gratuito. 
-Puoi ridistribuirlo e/o modificarlo secondo i termini della GNU General Public License pubblicata dalla Free Software Foundation; la versione 2 della Licenza o (a scelta) qualsiasi versione successiva.</translation>
+        <translation>Questo programma è un software gratuito. &lt;br&gt;Puoi ridistribuirlo e/o modificarlo secondo i termini della GNU (General Public License) pubblicata dalla Free Software Foundation; la versione 2 della Licenza o (a scelta) qualsiasi versione successiva.</translation>
     </message>
     <message>
         <source>This program is distributed in the hope that it will be useful,but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.</source>
-        <translation>Questo programma è distribuito nella speranza che possa essere utile, ma SENZA ALCUNA GARANZIA; senza nemmeno la garanzia implicita di COMMERCIABILITÀ o IDONEITÀ PER UNO SCOPO PARTICOLARE.
-Per maggiori dettagli vedi la GNU General Public License .</translation>
+        <translation>Questo programma è distribuito nella speranza che possa essere utile, ma SENZA ALCUNA GARANZIA; senza nemmeno la garanzia implicita di COMMERCIABILITÀ o IDONEITÀ PER UNO SCOPO PARTICOLARE.&lt;br&gt;Per maggiori dettagli vedi la GNU (General Public License).</translation>
     </message>
     <message>
         <source>Error, failed to parse config file &quot;%1&quot;</source>
@@ -686,7 +757,7 @@ Per maggiori dettagli vedi la GNU General Public License .</translation>
     </message>
     <message>
         <source>Download Failed, Engine crashed</source>
-        <translation>Download non riuscito, Engine bloccato</translation>
+        <translation>Download non riuscito, engine bloccato</translation>
     </message>
     <message>
         <source>Please Update &quot;%1&quot; To Atleast Version &quot;%2&quot;</source>
@@ -727,10 +798,6 @@ Per maggiori dettagli vedi la GNU General Public License .</translation>
     <message>
         <source>Update Complete, Restart To Use New Version</source>
         <translation>Aggiornamento completato, riavvia per usare la nuova versione</translation>
-    </message>
-    <message>
-        <source>File Not Found</source>
-        <translation>File non trovato</translation>
     </message>
     <message>
         <source>Dutch (Netherlands)</source>
@@ -775,10 +842,6 @@ Per maggiori dettagli vedi la GNU General Public License .</translation>
     <message>
         <source>Failed To Find &quot;bsdtar.exe&quot; Executable</source>
         <translation>Impossibile trovare l&apos;eseguibile &quot;bsdtar.exe&quot;</translation>
-    </message>
-    <message>
-        <source>Failed To Find &quot;tar&quot; Executable</source>
-        <translation>Impossibile trovare l&apos;eseguibile &quot;tar&quot;</translation>
     </message>
     <message>
         <source>Running In Portable Mode</source>
@@ -872,6 +935,233 @@ Per maggiori dettagli vedi la GNU General Public License .</translation>
         <source>Newest Version Is: %1</source>
         <translation>Versione più recente: %1</translation>
     </message>
+    <message>
+        <source>Failed To Start Executable %1</source>
+        <translation>Impossibile avviare l&apos;eseguibile %1</translation>
+    </message>
+    <message>
+        <source>Copy Url</source>
+        <translation>Copia URL</translation>
+    </message>
+    <message>
+        <source>Open Url With %1</source>
+        <translation>Apri URL con %1</translation>
+    </message>
+    <message>
+        <source>Copy Url %1</source>
+        <translation>Copia URL %1</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Dimensione</translation>
+    </message>
+    <message>
+        <source>Windows&apos; Secure Channel</source>
+        <translation>Canale sicuro di Windows</translation>
+    </message>
+    <message>
+        <source>Trouble Ahead, Failed To Delete Folder: %1</source>
+        <translation>Problemi in vista, impossibile eliminare la cartella: %1</translation>
+    </message>
+    <message>
+        <source>Other Websites</source>
+        <translation>Altri siti web</translation>
+    </message>
+    <message>
+        <source>Extract Audio</source>
+        <translation>Estrai audio</translation>
+    </message>
+    <message>
+        <source>Extract Audio As MP3</source>
+        <translation>Estrai audio come MP3</translation>
+    </message>
+    <message>
+        <source>Arabic</source>
+        <translation>Arabo</translation>
+    </message>
+    <message>
+        <source>Best Available Audio Only+Thumbnail</source>
+        <translation>Solo miglior audio disponibile+miniatura</translation>
+    </message>
+    <message>
+        <source>Youtube</source>
+        <translation>YouTube</translation>
+    </message>
+    <message>
+        <source>Autoupdate Disabled For %1</source>
+        <translation>Aggiornamento automatico disabilitato per %1</translation>
+    </message>
+    <message>
+        <source>Newest Version Is %1, AutoUpdate Disabled</source>
+        <translation>La versione più recente è %1, aggiornamento automatico disabilitato</translation>
+    </message>
+    <message>
+        <source>Author: %1</source>
+        <translation>Autore: %1</translation>
+    </message>
+    <message>
+        <source>Like Count: %1</source>
+        <translation>N. mi piace: %1</translation>
+    </message>
+    <message>
+        <source>Korean (Korea)</source>
+        <translation>Coreano (Corea)</translation>
+    </message>
+    <message>
+        <source>Sign In To Confirm You Are Not A Bot</source>
+        <translation>Accedi per confermare che non sei un bot</translation>
+    </message>
+    <message>
+        <source>Show/Hide Controls</source>
+        <translation>Visualizza/nascondi controlli</translation>
+    </message>
+    <message>
+        <source>Merging Audio and Video Together</source>
+        <translation>Unione audio e video</translation>
+    </message>
+    <message>
+        <source>Remuxing video</source>
+        <translation>Remux video</translation>
+    </message>
+    <message>
+        <source>Greek (Greece)</source>
+        <translation>Greco (Grecia)</translation>
+    </message>
+    <message>
+        <source>Platform Default</source>
+        <translation>Predefinito sistema</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>Chiaro</translation>
+    </message>
+    <message>
+        <source>Failed To Rename</source>
+        <translation>Impossibile rinominare</translation>
+    </message>
+    <message>
+        <source>Completed: %1, Running: %2, Not Started: %3, Succeeded: %4, Failed: %5, Cancelled: %6</source>
+        <translation>Completati: %1, in esecuzione: %2, non avviati: %3, completati: %4, falliti: %5, annullati: %6</translation>
+    </message>
+    <message>
+        <source>Stopping Because Media Is Already In Archive File</source>
+        <translation>Arresto in corso perché i media sono già nei file archivio</translation>
+    </message>
+    <message>
+        <source>Bulgarien (Bulgaria)</source>
+        <translation>Bulgaro (Bulgaria)</translation>
+    </message>
+    <message>
+        <source>Open Urls With %2</source>
+        <translation>Apri URL con %2</translation>
+    </message>
+    <message>
+        <source>Default Player</source>
+        <translation>Riproduttore predefinito</translation>
+    </message>
+    <message>
+        <source>Warning, Nothing Was Downloaded</source>
+        <translation>Attenzione, nulla è stato scaricato</translation>
+    </message>
+    <message>
+        <source>Download Cancelled, Playlist Urls Are Not Allowed In This Tab</source>
+        <translation>Download annullato, in questa scheda non sono consentiti gli URL playlist</translation>
+    </message>
+    <message>
+        <source>Download Cancelled Because A Condition Was Not Met</source>
+        <translation>Download annullato perché una condizione non è stata soddisfatta</translation>
+    </message>
+    <message>
+        <source>Download Failed, Unknown Reason</source>
+        <translation>Download fallito, ragione sconosciuta</translation>
+    </message>
+    <message>
+        <source>Download Failed, Network Issue</source>
+        <translation>Download fallito, problema di rete</translation>
+    </message>
+    <message>
+        <source>Ukrainian (Ukraine)</source>
+        <translation>Ucraino (Ucraina)</translation>
+    </message>
+    <message>
+        <source>Renaming &quot;%1&quot; to &quot;%2&quot;</source>
+        <translation>Rinomina di &quot;%1&quot; in &quot;%2&quot;</translation>
+    </message>
+    <message>
+        <source>Renaming Failed: %3</source>
+        <translation>Rinomina fallita: %3</translation>
+    </message>
+    <message>
+        <source>Skipping Checking Download Hash</source>
+        <translation>Salta controllo hash download</translation>
+    </message>
+    <message>
+        <source>Ignoring Download Because Hashes Do Not Match</source>
+        <translation>Download saltato perché gli hash non corrispondono</translation>
+    </message>
+    <message>
+        <source>Expected &quot;%1&quot; but obtained &quot;%2&quot;</source>
+        <translation>Previsto &quot;%1&quot;, ottenuto &quot;%2&quot;</translation>
+    </message>
+    <message>
+        <source>Failed To Remove</source>
+        <translation>Impossibile effettuare la rimozione</translation>
+    </message>
+    <message>
+        <source>Renaming file to: %1</source>
+        <translation>Rinomina file in: %1</translation>
+    </message>
+    <message>
+        <source>Skipping Checking Version Info For Engine &quot;%1&quot;</source>
+        <translation>Ignora controllo informazioni versione per il motore &quot;%1&quot;</translation>
+    </message>
+    <message>
+        <source>Failed To Find &quot;bsdtar&quot; or &quot;unzip&quot; Executable</source>
+        <translation>Impossibile trovare l&apos;eseguibile &quot;bsdtar&quot; o &quot;unzip&quot;</translation>
+    </message>
+    <message>
+        <source>New Ui Scale Factor: %1</source>
+        <translation>Nuovo fattore scala UI: %1</translation>
+    </message>
+    <message>
+        <source>Getting</source>
+        <translation>Ottenimento</translation>
+    </message>
+    <message>
+        <source>Paste Clipboard Url</source>
+        <translation>Incolla URL appunti</translation>
+    </message>
+    <message>
+        <source>Extracting Audio</source>
+        <translation>Estrazione audio</translation>
+    </message>
+    <message>
+        <source>Show Download History</source>
+        <translation>Visualizza cronologia download</translation>
+    </message>
+    <message>
+        <source>Sign In To Confirm You Age</source>
+        <translation>Accedi per confermare la tua età</translation>
+    </message>
+    <message>
+        <source>Current Language in Use: %1</source>
+        <translation>Lingua in uso: %1</translation>
+    </message>
+    <message>
+        <source>Qt Version: %1&lt;br&gt;&lt;br&gt;</source>
+        <translation>Versione Qt: %1&lt;br&gt;&lt;br&gt;</translation>
+    </message>
+    <message>
+        <source>Translators: NAME_AND_DATE_EXAMPLE: John Smith(2021-2026), Tembo(2022,2025)</source>
+        <translation>Traduzione: v. 04/09/2026 a cura di RB</translation>
+    </message>
+</context>
+<context>
+    <name>basicdownloader</name>
+    <message>
+        <source>Hide List</source>
+        <translation>Nascondi elenco</translation>
+    </message>
 </context>
 <context>
     <name>batchdownloader</name>
@@ -928,27 +1218,31 @@ Per maggiori dettagli vedi la GNU General Public License .</translation>
         <translation>Download sottotitoli</translation>
     </message>
     <message>
-        <source>Copy Url %1</source>
-        <translation>Copia URL %1</translation>
-    </message>
-    <message>
         <source>Download Media Part</source>
         <translation>Scarica parte multimediale</translation>
+    </message>
+    <message>
+        <source>Sort By Date Ascending</source>
+        <translation>Ordina per data crescente</translation>
+    </message>
+    <message>
+        <source>Sort By Date Descending</source>
+        <translation>Ordina per data decrescente</translation>
+    </message>
+    <message>
+        <source>Sort By Likes</source>
+        <translation>Ordina per n. Mi piace</translation>
+    </message>
+    <message>
+        <source>Rename</source>
+        <translation>Rinomina</translation>
     </message>
 </context>
 <context>
     <name>configure</name>
     <message>
-        <source>Select A Cookie File</source>
-        <translation>Seleziona un file cookie</translation>
-    </message>
-    <message>
         <source>Set Download Folder</source>
         <translation>Imposta cartella download</translation>
-    </message>
-    <message>
-        <source>Cancel</source>
-        <translation>Annulla</translation>
     </message>
     <message>
         <source>Remove</source>
@@ -966,6 +1260,46 @@ Per maggiori dettagli vedi la GNU General Public License .</translation>
         <source>Copy</source>
         <translation>Copia</translation>
     </message>
+    <message>
+        <source>Edit</source>
+        <translation>Modifica</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Aggiungi</translation>
+    </message>
+    <message>
+        <source>Set Defaults</source>
+        <translation>Imposta predefiniti</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annulla</translation>
+    </message>
+    <message>
+        <source>Select A Cookie File</source>
+        <translation>Seleziona un file cookie</translation>
+    </message>
+    <message>
+        <source>Name Of Web Browser To Get Cookies From</source>
+        <translation>Nome del browser web per ottenere i cookie</translation>
+    </message>
+    <message>
+        <source>Set Path To Cookie File</source>
+        <translation>Imposta percorso file cookie</translation>
+    </message>
+    <message>
+        <source>Current Ui Scale Factor: %1</source>
+        <translation>Attuale fattore scala UI: %1</translation>
+    </message>
+    <message>
+        <source>Text Encoding</source>
+        <translation>Codifica testo</translation>
+    </message>
+    <message>
+        <source>Enable AutoDownloading</source>
+        <translation>Abilita download automatico</translation>
+    </message>
 </context>
 <context>
     <name>library</name>
@@ -977,13 +1311,49 @@ Per maggiori dettagli vedi la GNU General Public License .</translation>
         <source>Delete All</source>
         <translation>Elimina tutto</translation>
     </message>
+    <message>
+        <source>Rename</source>
+        <translation>Rinomina</translation>
+    </message>
+    <message>
+        <source>Are You Sure You Want To Delete Below File?</source>
+        <translation>Vuoi eliminare il file indicato qui sotto?</translation>
+    </message>
+    <message>
+        <source>Are You Sure You Want To Delete Below Folder?</source>
+        <translation>Vuoi eliminare la cartella indicate qui sotto?</translation>
+    </message>
+    <message>
+        <source>Yes</source>
+        <translation>Sì</translation>
+    </message>
+    <message>
+        <source>No</source>
+        <translation>No</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annulla</translation>
+    </message>
+    <message>
+        <source>Are You Sure You Want To Delete All Files And Folders?</source>
+        <translation>Vuoi eliminare tutti i file e le cartelle?</translation>
+    </message>
+    <message>
+        <source>Rename File To Below Text</source>
+        <translation>Rinomina il file qui sotto il testo</translation>
+    </message>
+    <message>
+        <source>Rename Folder To Below Text</source>
+        <translation>Rinomina la cartella qui sotto il testo</translation>
+    </message>
+    <message>
+        <source>Are You Sure You Want To Delete Selected Items?</source>
+        <translation>Vuoi eliminare gli elementi selezionati?</translation>
+    </message>
 </context>
 <context>
     <name>logWindow</name>
-    <message>
-        <source>Clear</source>
-        <translation>Azzera</translation>
-    </message>
     <message>
         <source>Close</source>
         <translation>Chiudi</translation>
@@ -991,6 +1361,18 @@ Per maggiori dettagli vedi la GNU General Public License .</translation>
     <message>
         <source>Log Window</source>
         <translation>Finestra registro eventi</translation>
+    </message>
+    <message>
+        <source>Show All</source>
+        <translation>Visualizza tutto</translation>
+    </message>
+    <message>
+        <source>Enable Download History</source>
+        <translation>Abilita cronologia download</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Azzera</translation>
     </message>
 </context>
 <context>
@@ -1013,7 +1395,7 @@ Per maggiori dettagli vedi la GNU General Public License .</translation>
     </message>
     <message>
         <source>Get List Options:</source>
-        <translation>Ottieni opzioni eelnco:</translation>
+        <translation>Ottieni opzioni elenco:</translation>
     </message>
     <message>
         <source>Show All Updated</source>

@@ -18,43 +18,65 @@
  */
 
 #include <QByteArray>
-
+#include <QRegularExpression>
 #include "../engines.h"
 
-class wget : public engines::engine::functions
+class wget : public engines::engine::baseEngine
 {
 public:
 	static const char * testData() ;
-	static void init( const QString& name,
-			  const QString& configFileName,
-			  Logger& logger,
-			  const engines::enginePaths& enginePath ) ;
+	static void init( Logger& logger,const engines::enginePaths& enginePath ) ;
 	~wget() override ;
 	wget( const engines& e,const engines::engine& s,QJsonObject& ) ;
-	void updateDownLoadCmdOptions( const engines::engine::functions::updateOpts&,bool ) override ;
+	void updateDownLoadCmdOptions( const engines::engine::baseEngine::updateOpts&,
+				       bool,
+				       const QStringList& ) override ;
 
-	engines::engine::functions::DataFilter Filter( int ) override ;
+	engines::engine::baseEngine::DataFilter Filter( int ) override ;
 
-	void setProxySetting( QStringList&,const QString& ) override ;
+	void checkExePath( const QString& ) override ;
+
+	bool skipCondition( const QByteArray& ) override ;
+
+	bool bundledEngine() override ;
+
+	const QByteArray& replaceUndesirableText( const QByteArray& ) override ;
+
+	void setProxySetting( engines::engine::baseEngine::optionsEnvironment&,QStringList&,const QString& ) override ;
 
 	QString updateTextOnCompleteDownlod( const QString& uiText,
 					     const QString& bkText,
 					     const QString& downloadingOptions,
-					     const engines::engine::functions::finishedState& ) override ;
+					     const QString& tabName,
+					     const engines::engine::baseEngine::finishedState& ) override ;
 
-	class wgetFilter : public engines::engine::functions::filter
+	class wgetFilter : public engines::engine::baseEngine::filter
 	{
 	public:
-		wgetFilter( const engines::engine&,int ) ;
+		wgetFilter( const engines::engine&,int,bool,bool ) ;
 
-		const QByteArray& operator()( const Logger::Data& e ) override ;
+		const QByteArray& operator()( Logger::Data& e ) override ;
 
 		~wgetFilter() override ;
 	private:
+		bool m_isWget2_legacy ;
+		bool m_isWget2 ;
 		QByteArray m_title ;
 		QByteArray m_length ;
 		QByteArray m_tmp ;
-		engines::engine::functions::preProcessing m_preProcessing ;
+		engines::engine::baseEngine::preProcessing m_preProcessing ;
+		QByteArray uiText( const QByteArray&,const QByteArray&,const QByteArray& ) ;
+		bool progressLine( const QByteArray& ) ;
+		const QByteArray& processWget1( const QByteArray&,Logger::Data& ) ;
+		const QByteArray& processWget2( const QByteArray&,Logger::Data& ) ;
+		bool wget2() const ;
+		void setwget2Title( const QByteArray&,const QByteArray&,Logger::Data& ) ;
 	} ;
 private:
+	void setWgetVersion( const utils::qprocess::outPut& ) ;
+	bool wget2() const ;
+	bool m_isWget2_legacy = false ;
+	bool m_isWget2 = false ;
+	QByteArray m_tmp ;
+	QRegularExpression m_csi_regex ;
 };

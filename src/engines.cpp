@@ -24,16 +24,25 @@
 #include "engines/safaribooks.h"
 #include "engines/gallery-dl.h"
 #include "engines/aria2c.h"
+#include "engines/python.h"
 #include "engines/lux.h"
 #include "engines/wget.h"
 #include "engines/svtplay-dl.h"
 #include "engines/you-get.h"
+#include "engines/python.h"
+#include "engines/deno.h"
+#include "engines/bun.h"
+#include "engines/quickjs.h"
+#include "engines/quickjs_ng.h"
+#include "engines/getsauce.h"
+#include "engines/ffmpeg.h"
 
-#include "downloadmanager.hpp"
+#include "reportFinished.h"
 #include "utility.h"
 #include "version.h"
 #include "tableWidget.h"
 #include "context.hpp"
+#include "networkAccess.h"
 
 #include <QJsonObject>
 #include <QJsonArray>
@@ -42,62 +51,53 @@
 #include <QNetworkProxyFactory>
 #include <QDir>
 
-static QProcessEnvironment _getEnvPaths( const engines::enginePaths& paths,settings& settings )
+#include <cstring>
+
+QString engines::getEnvPaths( const QString& basePath,const QString& separator ) const
+{
+	auto m = basePath ;
+
+	const auto s = utility::dirEntries( basePath ) ;
+
+	for( const auto& it : s ){
+
+		m += separator + basePath + "/" + it ;
+		m += separator + basePath + "/" + it + "/bin" ;
+	}
+
+	return m ;
+}
+
+QProcessEnvironment engines::getEnvPaths() const
 {
 	auto env = QProcessEnvironment::systemEnvironment() ;
 
-	const auto& basePath = paths.binPath() ;
+	const auto& basePath = m_enginePaths.binPath() ;
 
-	const auto m = QDir( basePath ).entryList( QDir::Filter::Dirs | QDir::Filter::NoDotAndDotDot ) ;
+	auto separator = utility::platformIsLikeWindows() ? ";" : ":" ;
 
-	auto separator = [ & ](){
-
-		if( utility::platformIsLikeWindows() ){
-
-			return ";" ;
-		}else{
-			return ":" ;
-		}
-	}() ;
-
-	auto s = basePath ;
+	QString bundledPath ;
 
 	if( utility::platformIsWindows() ){
 
-		const auto& mm = settings.windowsOnly3rdPartyBinPath() ;
+		const auto& mm = m_settings.windowsOnly3rdPartyBinPath() ;
 
-		s += separator + mm ;
+		bundledPath = this->getEnvPaths( mm,separator ) ;
 
-		auto m = QDir( mm ).entryList( QDir::Filter::Dirs | QDir::Filter::NoDotAndDotDot ) ;
+	}else if( utility::platformIsOSX() ){
 
-		m.removeOne( "aria2-1.36.0-win-32bit-build1" ) ;
-		m.removeOne( "aria2-1.37.0-win-32bit-build1" ) ;
-		m.removeOne( "ffmpeg-n5.0-latest-win32-gpl-shared-5.0" ) ;
-		m.removeOne( "ffmpeg-n6.0-latest-win32-gpl-shared-6.0" ) ;
-		m.removeOne( "python-3.8.10-embed-win32" ) ;
-		m.removeOne( "wget-1.21.3-win32" ) ;
+		bundledPath = utility::OSXApplicationDirPath() ;
 
-		for( const auto& it : util::asConst( m ) ){
-
-			s += separator + mm + "/" + it ;
-			s += separator + mm + "/" + it + "/bin" ;
-		}
+		bundledPath += separator + utility::OSX3rdPartyDirPath() ;
 	}
 
-	for( const auto& it : m ){
+	auto binPath = this->getEnvPaths( basePath,separator ) ;
 
-		s += separator + basePath + "/" + it ;
-		s += separator + basePath + "/" + it + "/bin" ;
-	}
+	auto sysPath = env.value( "PATH" ) ;
 
-	auto p = env.value( "PATH" ) ;
+	auto path = bundledPath + separator + sysPath + separator + binPath ;
 
-	if( s.endsWith( separator ) ){
-
-		env.insert( "PATH",s + p ) ;
-	}else{
-		env.insert( "PATH",s + separator + p ) ;
-	}
+	env.insert( "PATH",path ) ;
 
 	env.insert( "LANG","C" ) ;
 
@@ -108,17 +108,17 @@ engines::engines( Logger& l,const engines::enginePaths& paths,settings& s,int id
 	m_logger( l ),
 	m_settings( s ),
 	m_enginePaths( paths ),
-	m_processEnvironment( _getEnvPaths( m_enginePaths,m_settings ) ),
-	m_defaultEngine( l,m_enginePaths )
+	m_processEnvironment( this->getEnvPaths() ),
+	m_defaultEngine( *this,l,m_enginePaths )
 {
-	this->updateEngines( true,id ) ;
+	this->updateEngines( id ) ;
 
 	this->showBanner() ;
 }
 
 void engines::showBanner()
 {
-	m_bannerId = utility::sequentialID() ;
+	m_bannerId = utility::loggerID() ;
 
 	const auto& id = m_bannerId ;
 
@@ -152,14 +152,18 @@ void engines::showBanner()
 	m_logger.add( QObject::tr( "Download Path: %1" ).arg( m_settings.downloadFolder( m_logger ) ),id ) ;
 	m_logger.add( QObject::tr( "App Data Path: %1" ).arg( m_enginePaths.basePath() ),id ) ;
 
-	//if( utility::platformIsWindows() ){
+	if( m_settings.printMediaPlayers() ){
 
-	//	const auto& m = m_settings.windowsOnly3rdPartyBinPath() ;
-	//	m_logger.add( QObject::tr( "3rd Party Path: %1" ).arg( m ),id ) ;
-	//}
+		m_logger.add( utility::barLine(),id ) ;
+
+		for( const auto& it : utility::getMediaPlayers() ){
+
+			m_logger.add( it.name + ": " + it.exePath,id ) ;
+		}
+	}
 }
 
-void engines::setNetworkProxy( engines::proxySettings e,bool firstTime )
+void engines::setNetworkProxy( engines::proxySettings e,bool firstTime,networkAccess& n )
 {
 	if( e.isSet() ){
 
@@ -195,59 +199,18 @@ void engines::setNetworkProxy( engines::proxySettings e,bool firstTime )
 
 	m_networkProxy = e.move() ;
 
-	QNetworkProxy::setApplicationProxy( m_networkProxy.networkProxy() ) ;
-}
-
-static void _openUrls( tableWidget& table,int row,settings& settings,bool galleryDl )
-{
-	if( downloadManager::finishedStatus::finishedWithSuccess( table,row ) ){
-
-		auto m = util::split( table.uiText( row ),'\n',true ) ;
-
-		m.removeFirst() ;
-
-		for( const auto& it : util::asConst( m ) ){
-
-			if( galleryDl ){
-
-				auto e = settings.downloadFolder() ;
-				auto m = QUrl::fromLocalFile( e + "/gallery-dl/" + it ) ;
-
-				QDesktopServices::openUrl( m ) ;
-			}else{
-				auto s = QDir::fromNativeSeparators( it ) ;
-				auto ss = QDir::fromNativeSeparators( settings.downloadFolder() ) ;
-
-				if( s.startsWith( ss ) ){
-
-					auto m = QUrl::fromLocalFile( s ) ;
-
-					QDesktopServices::openUrl( m ) ;
-				}else{
-					auto m = QUrl::fromLocalFile( settings.downloadFolder() + "/" + it ) ;
-
-					QDesktopServices::openUrl( m ) ;
-				}
-			}
-		}
-	}
-}
-
-void engines::openUrls( tableWidget& table,int row ) const
-{
-	_openUrls( table,row,m_settings,false ) ;
+	n.setProxySettings( m_networkProxy.networkProxy() ) ;
 }
 
 void engines::openUrls( tableWidget& table,int row,const engines::engine& engine ) const
 {
-	_openUrls( table,row,m_settings,engine.name() == "gallery-dl" ) ;
-}
+	if( reportFinished::finishedStatus::finishedWithSuccess( table,row ) ){
 
-void engines::openUrls( const QString& path ) const
-{
-	auto m = QUrl::fromLocalFile( path ) ;
+		const auto& ee = table.uiText( row ) ;
+		const auto& ss = table.entryAt( static_cast< size_t >( row ) ).fileNames ;
 
-	QDesktopServices::openUrl( m ) ;
+		engine.openLocalFile( { ee,m_settings.downloadFolder(),ss } ) ;
+	}
 }
 
 const QString& engines::defaultEngineName() const
@@ -255,48 +218,192 @@ const QString& engines::defaultEngineName() const
 	return m_defaultEngine.name() ;
 }
 
-static util::result< engines::engine > _get_engine_by_path( const QString& e,
-							    const engines& engines,
-							    Logger& logger,
-							    const engines::enginePaths& enginePaths )
+void engines::setJsRuntime()
 {
-	auto path = enginePaths.enginePath( e ) ;
+	for( auto& it : m_backends ){
 
-	util::Json json( engines::file( path,logger ).readAll() ) ;
+		it.setJsRuntime() ;
+	}
+}
+
+engines::EnginesList::engine engines::getEngineByPath( const QString& e ) const
+{
+	if( e == "yt-dlp-nightly.json" ){
+
+		return this->getEngineByPath2( "yt-dlp.json",e,yt_dlp::cmdNightly ) ;
+
+	}else if( e == "yt-dlp-ffmpeg.json" ){
+
+		return this->getEngineByPath2( "yt-dlp.json",e,yt_dlp::cmdFfmpeg ) ;
+
+	}else if( e == "yt-dlp-aria2c.json" ){
+
+		return this->getEngineByPath2( "yt-dlp.json",e,yt_dlp::cmdAria2C ) ;
+	}else{
+		return this->getEngineByPath2( e ) ;
+	}
+}
+
+engines::EnginesList::engine engines::getEngineByPath1( QJsonObject object ) const
+{
+	auto minVersion = object.value( "RequiredMinimumVersionOfMediaDownloader" ).toString() ;
+
+	if( !minVersion.isEmpty() ){
+
+		util::version min = minVersion ;
+		util::version cur = utility::compileTimeVersion() ;
+
+		if( min > cur ){
+
+			auto name = object.value( "Name" ).toString() ;
+
+			auto m = QObject::tr( "Engine \"%1\" requires atleast version \"%2\" of Media Downloader" ) ;
+
+			m_logger.add( m.arg( name,minVersion ),utility::loggerID() ) ;
+
+			return {} ;
+		}
+	}
+
+	return { m_logger,m_enginePaths,object,*this,utility::loggerID() } ;
+}
+
+engines::EnginesList::engine engines::getEngineByPath2( const QString& e,const QString& f,engines::converter function ) const
+{
+	auto path = m_enginePaths.enginePath( e ) ;
+
+	util::Json json( engines::file( path,m_logger ).readAll() ) ;
 
 	if( json ){
 
-		auto object = json.doc().object() ;
+		auto obj = json.toObject() ;
 
-		auto minVersion = object.value( "RequiredMinimumVersionOfMediaDownloader" ).toString() ;
+		if( function ){
 
-		if( !minVersion.isEmpty() ){
+			auto path = m_enginePaths.enginePath( f ) ;
 
-			if( util::version( minVersion ) > VERSION ){
+			util::Json xjson( engines::file( path,m_logger ).readAll() ) ;
 
-				auto name = object.value( "Name" ).toString() ;
-
-				auto m = QObject::tr( "Engine \"%1\" requires atleast version \"%2\" of Media Downloader" ) ;
-
-				logger.add( m.arg( name,minVersion ),utility::sequentialID() ) ;
-
-				return {} ;
-			}
+			return this->getEngineByPath1( function( obj,xjson.toObject() ) ) ;
+		}else{
+			return this->getEngineByPath1( obj ) ;
 		}
-
-		return { logger,enginePaths,object,engines,utility::sequentialID() } ;
 	}else{
 		return {} ;
 	}
 }
 
+engines::EnginesList::engine engines::getSupportingEngineByName( const QString& e ) const
+{
+	QJsonObject obj ;
+
+	obj.insert( "Name",e ) ;
+	obj.insert( "SupportingEngine",true ) ;
+
+	obj.insert( "Cmd",[ & ](){
+
+		QJsonObject oo ;
+
+		oo.insert( "Generic",[ & ](){
+
+			QJsonObject s ;
+
+			s.insert( "Name",e ) ;
+			s.insert( "Args",utility::QJsonArrayJoin( e ) ) ;
+
+			QJsonObject aa ;
+
+			aa.insert( "amd64",s ) ;
+
+			aa.insert( "x86",s ) ;
+
+			return aa ;
+		}() ) ;
+
+		oo.insert( "Windows",[ & ](){
+
+			QJsonObject s ;
+
+			s.insert( "Name",e ) ;
+			s.insert( "Args",utility::QJsonArrayJoin( e + ".exe" ) ) ;
+
+			QJsonObject aa ;
+
+			aa.insert( "amd64",s ) ;
+
+			aa.insert( "x86",s ) ;
+
+			return aa ;
+		}() ) ;
+
+		return oo ;
+	}() ) ;
+
+	if( e == "ffmpeg" ){
+
+		ffmpeg::init( obj,m_enginePaths ) ;
+
+	}else if( e == "python" || e == "python3" ){
+
+		obj.insert( "Name","python" ) ;
+
+		python::init( obj,m_enginePaths ) ;
+
+	}else if( e == "tar" ){
+
+		obj.insert( "VersionArgument","--version" ) ;
+		obj.insert( "VersionStringLine",0 ) ;
+
+		auto m = utility::platformIsLinux() ? 3 : 1 ;
+
+		obj.insert( "VersionStringPosition",m ) ;
+
+	}else if( e == "bsdtar" ){
+
+		obj.insert( "VersionArgument","--version" ) ;
+		obj.insert( "VersionStringLine",0 ) ;
+		obj.insert( "VersionStringPosition",1 ) ;
+	}
+
+	return { m_logger,m_enginePaths,obj,*this,utility::loggerID() } ;
+}
+
 QStringList engines::engine::dumpJsonArguments( engines::engine::tab tab ) const
 {
-	if( tab == engine::tab::playlist ){
+	if( this->isGalleryDl() ){
 
-		return yt_dlp::jsonNoFormatsArgumentList() ;
+		if( tab == engine::tab::playlist ){
+
+			auto m = m_dumpJsonArguments ;
+
+			m.append( "-o" ) ;
+			m.append( "metadata.mode=jsonl" ) ;
+
+			return m ;
+		}else{
+			auto m = m_dumpJsonArguments ;
+
+			m.append( "--range" ) ;
+			m.append( "1" ) ;
+
+			return m ;
+		}
+
+	}else if( tab == engine::tab::playlist ){
+
+		if( this->name() == "yt-dlp-test" ){
+
+			return { "--media-downloader-test-engine-yt-dlp-playlist" } ;
+		}else{
+			return yt_dlp::jsonNoFormatsArgumentList() ;
+		}
 	}else{
-		return m_dumpJsonArguments ;
+		if( this->name() == "yt-dlp-test" ){
+
+			return { "--media-downloader-test-engine-yt-dlp-metadata" } ;
+		}else{
+			return m_dumpJsonArguments ;
+		}
 	}
 }
 
@@ -313,115 +420,83 @@ void engines::setDefaultEngine( const QString& name )
 	}
 }
 
-void engines::updateEngines( bool addAll,int id )
+bool engines::engineAdd( const QString& jsonFile,engines::EnginesList::engine m,int id )
 {
-	m_backends.clear() ;
+	if( m.valid() ){
 
-	auto _engine_add = [ & ]( const QString& jsonFile,util::result< engines::engine > m ){
+		if( m->exePath().isEmpty() ){
 
-		if( m ){
+			auto s = QObject::tr( "Error, executable to backend \"%1\" could not be found" ) ;
 
-			if( m->exePath().isEmpty() ){
-
-				m_logger.add( QObject::tr( "Error, executable to backend \"%1\" could not be found" ).arg( m->name() ),id ) ;
-			}else{
-				m_backends.emplace_back( std::move( m.value() ) ) ;
-			}
+			m_logger.add( s.arg( m->name() ),id ) ;
 		}else{
-			m_logger.add( QObject::tr( "Error, failed to parse config file \"%1\"" ).arg( jsonFile ),id ) ;
+			m->setJsRuntime() ;
+			m_backends.add( m.move() ) ;
+
+			return true ;
 		}
-	} ;
-
-	_engine_add( "",_get_engine_by_path( m_defaultEngine.configFileName(),*this,m_logger,m_enginePaths ) ) ;
-
-	const auto mm = this->enginesList() ;
-
-	for( const auto& it : mm ){
-
-		_engine_add( it,_get_engine_by_path( it,*this,m_logger,m_enginePaths ) ) ;
+	}else{
+		m_logger.add( QObject::tr( "Error, failed to parse config file \"%1\"" ).arg( jsonFile ),id ) ;
 	}
 
-	if( addAll ){
+	return false ;
+}
 
-		_engine_add( "",{ *this,m_logger,"ffmpeg","-version",0,2,id } ) ;
+bool engines::addEngine( const QString& extensionFileName,int id )
+{
+	if( this->engineAdd( extensionFileName,this->getEngineByPath( extensionFileName ),id ) ){
 
-		_engine_add( "",{ *this,m_logger,"aria2c","--version",0,2,id } ) ;
-
-		for( const auto& it : this->getEngines() ){
-
-			const auto& e = it.exePath().exe() ;
-
-			if( e.size() > 0 && e.at( 0 ).contains( "python" ) ){
-
-				if( utility::platformIsWindows() ){
-
-					_engine_add( it.name(),{ *this,m_logger,"python","--version",0,1,id } ) ;
-				}else{
-					_engine_add( it.name(),{ *this,m_logger,"python3","--version",0,1,id } ) ;
-				}
-				break ;
-			}
-		}
-	}
-
-	const auto& engines = *this ;
-
-	for( auto& it : m_backends ){
-
-		const auto& name = it.name() ;
-
-		if( it.likeYoutubeDl() ){
-
-			it.setBackend< yt_dlp >( engines,m_logger,m_enginePaths,it.versionInfo() ) ;
-
-		}else if( name.contains( "safaribooks" ) ){
-
-			it.setBackend< safaribooks >( engines ) ;
-
-		}else if( name.contains( "gallery-dl" ) ){
-
-			it.setBackend< gallery_dl >( engines ) ;
-
-		}else if( name == "aria2c" ){
-
-			it.setBackend< aria2c >( engines ) ;
-
-		}else if( name.contains( "lux" ) ){
-
-			it.setBackend< lux >( engines,m_settings.downloadFolder() ) ;
-
-		}else if( name.contains( "you-get" ) ){
-
-			it.setBackend< you_get >( engines ) ;
-
-		}else if( name.contains( "svtplay-dl" ) ){
-
-			it.setBackend< svtplay_dl >( engines ) ;
-
-		}else if( name.contains( "wget" ) ){
-
-			it.setBackend< wget >( engines ) ;
-
-		}else if( it.mainEngine() ){
-
-			it.setBackend< generic >( engines ) ;
-		}
+		m_backends.sort() ;
+		return true ;
+	}else{
+		return false ;
 	}
 }
 
-const std::vector< engines::engine >& engines::getEngines() const
+void engines::removeEngineFromList( const QString& name,int )
+{
+	m_backends.remove( name ) ;
+}
+
+void engines::updateEngines( int id )
+{
+	const auto mm = this->enginesList() ;	
+
+	for( const auto& it : mm ){
+
+		this->engineAdd( it,this->getEngineByPath( it ),id ) ;
+	}
+
+	if( utility::platformIsWindows() ){
+
+		this->engineAdd( "",this->getSupportingEngineByName( "bsdtar" ),id ) ;
+	}else{
+		this->engineAdd( "",this->getSupportingEngineByName( "tar" ),id ) ;
+	}
+
+	this->engineAdd( "",this->getSupportingEngineByName( "ffmpeg" ),id ) ;
+
+	if( you_get::installed( m_enginePaths ) ){
+
+		this->engineAdd( "",this->getSupportingEngineByName( "python" ),id ) ;
+	}
+
+	m_backends.sort() ;
+}
+
+const engines::EnginesList& engines::getEngines() const
 {
 	return m_backends ;
 }
 
 engines::Iterator engines::getEnginesIterator() const
 {
-	return { m_backends,utility::sequentialID() } ;
+	return { m_backends,utility::loggerID() } ;
 }
 
 const engines::engine& engines::defaultEngine( const QString& name,int id ) const
 {
-	auto m =  this->getEngineByName( name ) ;
+	auto m = this->getEngineByName( name ) ;
 
 	if( m ){
 
@@ -429,11 +504,15 @@ const engines::engine& engines::defaultEngine( const QString& name,int id ) cons
 	}else{
 		m_logger.add( "Error: engines::defaultEngine: Unknown Engine: " + name,id ) ;
 
-		if( m_backends.size() > 0 ){
+		if( m_backends.size() ){
 
 			return m_backends[ 0 ] ;
 		}else{
-			static engines::engine engine( m_logger ) ;
+			auto id = utility::loggerID() ;
+
+			auto obj = yt_dlp::init() ;
+
+			static engines::engine engine( m_logger,m_enginePaths,obj,*this,id ) ;
 
 			return engine ;
 		}
@@ -453,30 +532,21 @@ util::result_ref< const engines::engine& > engines::getEngineByName( const QStri
 	return {} ;
 }
 
+util::result_ref< const engines::engine& > engines::getCompleteEngineByPath( const QString& e ) const
+{
+	auto m = this->getEngineByPath( e ) ;
+
+	if( m.valid() && m->valid() ){
+
+		return this->getEngineByName( m->name() ) ;
+	}else{
+		return {} ;
+	}
+}
+
 const engines::enginePaths& engines::engineDirPaths() const
 {
 	return m_enginePaths ;
-}
-
-static QStringList _toStringList( const QJsonValue& value,bool protectSpace = false ){
-
-	QStringList m ;
-
-	const auto array = value.toArray() ;
-
-	for( const auto& it : array ){
-
-		auto s = it.toString() ;
-
-		if( s.contains( ' ' ) && protectSpace ){
-
-			m.append( "\"" + s + "\"" ) ;
-		}else{
-			m.append( s ) ;
-		}
-	}
-
-	return m ;
 }
 
 settings& engines::Settings() const
@@ -486,32 +556,92 @@ settings& engines::Settings() const
 
 bool engines::filePathIsValid( const QFileInfo& info )
 {
-	if( utility::platformIsLikeWindows() ){
-
-		return info.exists() && info.isFile() ;
-	}else{
-		return info.exists() && info.isFile() && info.isExecutable() ;
-	}
+	return info.exists() && info.isFile() ;
 }
 
-static QString _findExecutable( const QString& exeName,const QStringList& paths,QFileInfo& info )
+QString engines::findExecutable( const QString& exeName,const QStringList& paths,bool fromBeginning ) const
 {
-	for( const auto& it : paths ){
+	QFileInfo info( exeName ) ;
 
-		auto m = it + "/" + exeName ;
+	if( utility::platformIsWindows() ){
 
-		info.setFile( m ) ;
+		if( exeName == "ffmpeg.exe" || exeName == "python.exe" ){
 
-		if( engines::filePathIsValid( info ) ){
-
-			return m ;
+			fromBeginning = false ;
 		}
 	}
 
-	return {} ;
+	class filter
+	{
+	public:
+		filter()
+		{
+		}
+		bool operator()( const QString& path,const QString& ) const
+		{
+			if( path.contains( "WindowsApps" ) ){
+
+				return true ;
+			}else{
+				return false ;
+			}
+		}
+	private:
+	} ;
+
+	if( fromBeginning ){
+
+		return this->findExecutable( utility::forwardIterator( paths ),filter(),exeName,info ) ;
+	}else{
+		return this->findExecutable( utility::reverseIterator( paths ),filter(),exeName,info ) ;
+	}
 }
 
-QString engines::findExecutable( const QString& exeName ) const
+QString engines::findOtherExecutable( const QString& e,const QStringList& p,bool s ) const
+{
+	return this->findExecutable( e,p,s ) ;
+}
+
+QString engines::findWinExecutable( const QString& exeName,const QStringList& paths,bool fromBeginning ) const
+{
+	auto m = this->findExecutable( exeName,paths,fromBeginning ) ;
+
+	if( m.isEmpty() && !exeName.endsWith( ".exe" ) ){
+
+		m = this->findExecutable( exeName + ".exe",paths,fromBeginning ) ;
+	}
+
+	return m ;
+}
+
+template< typename Obj,typename Method >
+static auto getFinder( Obj obj,Method method,char splitter,bool searchFromBeginning )
+{
+	class meaw
+	{
+	public:
+		meaw( Obj obj,Method method,char s,bool f ) :
+			m_obj( obj ),
+			m_method( method ),
+			m_paths( obj->processEnvironment().value( "PATH" ).split( s ) ),
+			m_forward( f )
+		{
+		}
+		QString operator()( const QString& exeName )
+		{
+			return ( m_obj->*m_method )( exeName,m_paths,m_forward ) ;
+		}
+	private:
+		Obj m_obj ;
+		Method m_method ;
+		QStringList m_paths ;
+		bool m_forward ;
+	} ;
+
+	return meaw( obj,method,splitter,searchFromBeginning ) ;
+}
+
+QString engines::findExecutable( const QString& exeName,bool searchFromBeginning ) const
 {
 	if( utility::platformIsWindows() && exeName == "media-downloader.exe" ){
 
@@ -525,28 +655,26 @@ QString engines::findExecutable( const QString& exeName ) const
 		return exeName ;
 	}
 
-	auto paths = [ this ](){
+	auto a = &engines::findWinExecutable ;
+	auto b = &engines::findOtherExecutable ;
+	auto c = searchFromBeginning ;
 
-		if( utility::platformIsLikeWindows() ){
+	auto likeWindows = utility::platformIsLikeWindows() ;
 
-			return this->processEnvironment().value( "PATH" ).split( ';' ) ;
-		}else{
-			return this->processEnvironment().value( "PATH" ).split( ':' ) ;
-		}
-	}() ;
+	auto findExe = likeWindows ? getFinder( this,a,';',c ) : getFinder( this,b,':',c ) ;
 
-	if( utility::platformIsLikeWindows() ){
+	if( exeName == "wget" || exeName == "wget.exe" ){
 
-		auto m = _findExecutable( exeName,paths,info ) ;
+		auto m = findExe( "wget2" ) ;
 
-		if( m.isEmpty() && !exeName.endsWith( ".exe" ) ){
+		if( m.isEmpty() ){
 
-			m = _findExecutable( exeName + ".exe",paths,info ) ;
+			m = findExe( exeName ) ;
 		}
 
 		return m ;
 	}else{
-		return _findExecutable( exeName,paths,info ) ;
+		return findExe( exeName ) ;
 	}
 }
 
@@ -555,23 +683,23 @@ const QProcessEnvironment& engines::processEnvironment() const
 	return m_processEnvironment ;
 }
 
-QString engines::addEngine( const QByteArray& data,const QString& path,int id )
+QString engines::addEngine( const QByteArray& data,const QString& extensionFileName,int id )
 {
 	util::Json json( data ) ;
 
 	if( json ){
 
-		auto object = json.doc().object() ;
+		auto object = json.toObject() ;
 
 		auto name = object.value( "Name" ).toString() ;
 
 		if( !name.isEmpty() ){
 
-			auto e = m_enginePaths.enginePath( path ) ;
+			auto e = m_enginePaths.enginePath( extensionFileName ) ;
 
 			QFile f( e ) ;
 
-			if( f.open( QIODevice::WriteOnly ) ){
+			if( f.open( QIODevice::WriteOnly | QIODevice::Truncate ) ){
 
 				f.write( data ) ;
 
@@ -589,9 +717,12 @@ QString engines::addEngine( const QByteArray& data,const QString& path,int id )
 					}
 				}
 
-				this->updateEngines( false,id ) ;
+				if( this->addEngine( extensionFileName,id ) ){
 
-				return name ;
+					return name ;
+				}else{
+					return {} ;
+				}
 			}
 		}
 	}
@@ -601,13 +732,15 @@ QString engines::addEngine( const QByteArray& data,const QString& path,int id )
 	return {} ;
 }
 
-void engines::removeEngine( const QString& e,int id )
+void engines::removeEngine( const QString& ee,int id )
 {
-	const auto& engine = _get_engine_by_path( e,*this,m_logger,m_enginePaths ) ;
+	auto e = ee + ".json" ;
 
-	if( engine && engine->valid() ){
+	const auto& engine = this->getCompleteEngineByPath( e ) ;
 
-		QFile::remove( m_enginePaths.enginePath( e ) ) ;
+	if( engine ){
+
+		utility::removeFile( m_enginePaths.enginePath( e ) ) ;
 
 		if( engine->archiveContainsFolder() ){
 
@@ -615,7 +748,7 @@ void engines::removeEngine( const QString& e,int id )
 
 			if( m.exists() && m.isDir() ){
 
-				QDir( m.filePath() ).removeRecursively() ;
+				utility::removeFolder( m.filePath() ) ;
 			}
 		}else{
 			auto exe = QDir::fromNativeSeparators( engine->exePath().realExe() ) ;
@@ -623,9 +756,11 @@ void engines::removeEngine( const QString& e,int id )
 
 			if( exe.startsWith( binPath ) && QFile::exists( exe ) ){
 
-				QFile::remove( exe ) ;
+				engine->removeFiles( { exe },binPath ) ;
 			}
 		}
+
+		this->removeEngineFromList( engine->name(),id ) ;
 
 		if( m_backends.size() > 0 ){
 
@@ -642,9 +777,7 @@ void engines::removeEngine( const QString& e,int id )
 			_reset_default( name,settings::tabName::basic ) ;
 			_reset_default( name,settings::tabName::batch ) ;
 			_reset_default( name,settings::tabName::playlist ) ;
-		}
-
-		this->updateEngines( false,id ) ;
+		}		
 	}
 }
 
@@ -652,62 +785,267 @@ QStringList engines::enginesList() const
 {
 	auto m = QDir( m_enginePaths.enginePath() ).entryList( QDir::Filter::Files ) ;
 
-	m.removeAll( m_defaultEngine.configFileName() ) ;
+	m.removeOne( "youtube-dl.json" ) ;
 
 	return m ;
 }
 
-engines::engine::engine( Logger& )
+QStringList engines::engine::toStringList( const QJsonValue& value,bool protectSpace ) const
 {
+	QStringList m ;
+
+	const auto array = value.toArray() ;
+
+	for( const auto it : array ){
+
+		auto s = it.toString() ;
+
+		if( s.contains( ' ' ) && protectSpace ){
+
+			m.append( "\"" + s + "\"" ) ;
+		}else{
+			m.append( s ) ;
+		}
+	}
+
+	return m ;
 }
 
-engines::engine::engine( const engines& engines,
-			 Logger& logger,
-			 const QString& name,
-			 const QString& versionArgument,
-			 int line,
-			 int position,
-			 int id ) :
-	m_line( line ),
-	m_position( position ),
-	m_valid( true ),
-	m_mainEngine( false ),
-	m_versionArgument( versionArgument ),
-	m_name( name ),
-	m_commandName( utility::platformIsLikeWindows() ? name + ".exe" : name )
+void engines::engine::setJsRuntime()
 {
-	auto m = engines.findExecutable( m_commandName ) ;
+	if( m_extraArguments.isEmpty() && m_likeYtDlp ){
 
-	if( m.isEmpty() ){
+		if( utility::platformIsLegacyWindows() ){
 
-		m_valid = false ;
-		logger.add( QObject::tr( "Failed to find executable \"%1\"" ).arg( m_commandName ),id ) ;
-	}else{
-		m_exePath = m ;
+			engines::engine::jsRuntimeInstalled js( m_parent,"quickjs-ng" ) ;
+
+			if( js.valid() ){
+
+				m_extraArguments.append( "--no-js-runtimes" ) ;
+				m_extraArguments.append( "--js-runtimes" ) ;
+
+				m_extraArguments.append( js.name() + ":" + js.exePath() ) ;
+			}
+
+		}else if( utility::platformisFlatPak() || utility::platformIsAppImage() ){
+
+			if( m_parent.m_settings.flatpackUseDenoRuntime() ){
+
+				engines::engine::jsRuntimeInstalled js( m_parent,"deno" ) ;
+
+				if( js.valid() ){
+
+					m_extraArguments.append( "--no-js-runtimes" ) ;
+					m_extraArguments.append( "--js-runtimes" ) ;
+
+					m_extraArguments.append( js.name() + ":" + js.exePath() ) ;
+				}
+			}else{
+				engines::engine::jsRuntimeInstalled js( m_parent ) ;
+
+				if( js.valid() ){
+
+					m_extraArguments.append( "--no-js-runtimes" ) ;
+					m_extraArguments.append( "--js-runtimes" ) ;
+
+					m_extraArguments.append( js.name() + ":" + js.exePath() ) ;
+				}
+			}
+		}else{
+			engines::engine::jsRuntimeInstalled js( m_parent ) ;
+
+			if( js.valid() ){
+
+				m_extraArguments.append( "--no-js-runtimes" ) ;
+				m_extraArguments.append( "--js-runtimes" ) ;
+
+				m_extraArguments.append( js.name() + ":" + js.exePath() ) ;
+			}
+		}
 	}
 }
 
-void engines::engine::updateOptions()
+QJsonObject engines::engine::getCmd( const QJsonObject& cmd,const QString& arc )
 {
-	m_controlStructure                = m_jsonObject.value( "ControlJsonStructure" ).toObject() ;
-	m_canDownloadPlaylist             = m_jsonObject.value( "CanDownloadPlaylist" ).toBool() ;
-	m_replaceOutputWithProgressReport = m_jsonObject.value( "ReplaceOutputWithProgressReport" ).toBool( false ) ;
-	m_userName                        = m_jsonObject.value( "UserName" ).toString() ;
-	m_password                        = m_jsonObject.value( "Password" ).toString() ;
-	m_optionsArgument                 = m_jsonObject.value( "OptionsArgument" ).toString() ;
-	m_playlistItemsArgument           = m_jsonObject.value( "PlaylistItemsArgument" ).toString() ;
-	m_batchFileArgument               = m_jsonObject.value( "BatchFileArgument" ).toString() ;
-	m_cookieArgument                  = m_jsonObject.value( "CookieArgument" ).toString() ;
-	m_encodingArgument                = m_jsonObject.value( "EncodingArgument" ).toString() ;
-	m_dumpJsonArguments               = _toStringList( m_jsonObject.value( "DumptJsonArguments" ) ) ;
-	m_splitLinesBy                    = _toStringList( m_jsonObject.value( "SplitLinesBy" ) ) ;
-	m_removeText                      = _toStringList( m_jsonObject.value( "RemoveText" ) ) ;
-	m_skiptLineWithText               = _toStringList( m_jsonObject.value( "SkipLineWithText" ) ) ;
-	m_defaultDownLoadCmdOptions       = _toStringList( m_jsonObject.value( "DefaultDownLoadCmdOptions" ),true ) ;
-	m_defaultListCmdOptions           = _toStringList( m_jsonObject.value( "DefaultListCmdOptions" ) ) ;
-	m_defaultCommentsCmdOptions       = _toStringList( m_jsonObject.value( "DefaultCommentsCmdOptions" ) ) ;
-	m_defaultSubstitlesCmdOptions     = _toStringList( m_jsonObject.value( "DefaultSubstitlesCmdOptions" ) ) ;
-	m_defaultSubtitleDownloadOptions  = _toStringList( m_jsonObject.value( "DefaultSubtitleDownloadOptions" ) ) ;
+	if( utility::platformIsWindows() ){
+
+		return cmd.value( "Windows" ).toObject().value( arc ).toObject() ;
+	}else{
+		if( utility::platformIsOSX() ){
+
+			auto m = cmd.value( "MacOS" ).toObject() ;
+
+			if( !m.isEmpty() ){
+
+				return m.value( arc ).toObject() ;
+			}
+		}
+
+		return cmd.value( "Generic" ).toObject().value( arc ).toObject() ;
+	}
+}
+
+engines::engine::cmd engines::engine::getCommands( const QString& engineName,const QJsonObject& obj )
+{
+	auto cmd = obj.value( "Cmd" ).toObject() ;
+
+	utility::CPU cpu ;
+
+	if( utility::platformIsWindows7() && engineName == "yt-dlp" ){
+
+		auto url = obj.value( "DownloadUrlWin7" ).toString() ;
+
+		auto arc = cpu.x86_64() ? "win7amd64" : "win7x86" ;
+
+		return { this->getCmd( cmd,arc ),url,*this } ;
+	}
+
+	QString url ;
+
+	if( utility::platformIsOSX() ){
+
+		url = obj.value( "DownloadUrlMAC" ).toString() ;
+
+		if( url.isEmpty() ){
+
+			url = obj.value( "DownloadUrl" ).toString() ;
+		}
+	}else{
+		url = obj.value( "DownloadUrl" ).toString() ;
+	}
+
+	if( cpu.x86_32() ){
+
+		auto m = this->getCmd( cmd,"x86" ) ;
+
+		if( !m.isEmpty() ){
+
+			return { m,url,*this } ;
+		}
+
+	}else if( cpu.x86_64() ){
+
+		return { this->getCmd( cmd,"amd64" ),url,*this } ;
+
+	}else if( cpu.aarch64() ){
+
+		auto m = this->getCmd( cmd,"aarch64" ) ;
+
+		if( !m.isEmpty() ){
+
+			return { m,url,*this } ;
+		}
+	}
+
+	return { this->getCmd( cmd,"amd64" ),url,*this } ;
+}
+
+engines::engine::cmd::cmd( const QJsonObject& obj,
+			   const QString& url,
+			   const engines::engine& engine ) :
+	m_commandName( obj.value( "Name" ).toString() ),
+	m_downloadUrl( url ),
+	m_args( engine.toStringList( obj.value( "Args" ).toArray() ) )
+{
+}
+
+QJsonObject engines::engine::getOpts( const util::Json& e,settings& s ) const
+{
+	auto obj = e.toObject() ;
+
+	auto name = obj.value( "Name" ).toString() ;
+
+	if( name == "quickjs" ){
+
+		obj.insert( "SupportingEngine",true ) ;
+
+	}if( name == "deno" ){
+
+		obj.insert( "SupportingEngine",true ) ;
+
+		obj.insert( "UpdatableSupportingEngine",true ) ;
+
+		obj.insert( "AutoUpdate",s.denoEnableAutoDownload() ) ;
+
+	}else if( name == "ffmpeg" || name == "python" || name == "quickjs-ng" ){
+
+		obj.insert( "SupportingEngine",true ) ;
+
+		obj.insert( "UpdatableSupportingEngine",true ) ;
+
+	}
+
+	return obj ;
+}
+
+std::unique_ptr< engines::engine::baseEngine > engines::engine::setEngine( const engines& engines )
+{
+	const auto& name = this->name() ;
+
+	const auto& engine = *this ;
+
+	if( this->likeYtDlp() ){
+
+		return std::make_unique< yt_dlp >( engines,engine,m_jsonObject ) ;
+
+	}else if( name.contains( "safaribooks" ) ){
+
+		return std::make_unique< safaribooks >( engines,engine,m_jsonObject ) ;
+
+	}else if( name == "python" ){
+
+		return std::make_unique< python >( engines,engine,m_jsonObject ) ;
+
+	}else if( name.contains( "gallery-dl" ) ){
+
+		return std::make_unique< gallery_dl >( engines,engine,m_jsonObject ) ;
+
+	}else if( name == "aria2c" ){
+
+		return std::make_unique< aria2c >( engines,engine,m_jsonObject ) ;
+
+	}else if( name.contains( "lux" ) ){
+
+		return std::make_unique< lux >( engines,engine,m_jsonObject ) ;
+
+	}else if( name.contains( "you-get" ) ){
+
+		return std::make_unique< you_get >( engines,engine,m_jsonObject ) ;
+
+	}else if( name.contains( "svtplay-dl" ) ){
+
+		return std::make_unique< svtplay_dl >( engines,engine,m_jsonObject ) ;
+
+	}else if( name.contains( "wget" ) ){
+
+		return std::make_unique< wget >( engines,engine,m_jsonObject ) ;
+
+	}else if( name.contains( "deno" ) ){
+
+		return std::make_unique< deno >( engines,engine,m_jsonObject ) ;
+
+	}else if( name.contains( "bun" ) ){
+
+		return std::make_unique< bun >( engines,engine,m_jsonObject ) ;
+
+	}else if( name == "quickjs" ){
+
+		return std::make_unique< quickjs >( engines,engine,m_jsonObject ) ;
+
+	}else if( name.contains( "getsauce" ) ){
+
+		return std::make_unique< getsauce >( engines,engine,m_jsonObject ) ;
+
+	}else if( name == "quickjs-ng" ){
+
+		return std::make_unique< quickjs_ng >( engines,engine,m_jsonObject ) ;
+
+	}else if( name == "ffmpeg" ){
+
+		return std::make_unique< ffmpeg >( engines,engine,m_jsonObject ) ;
+	}else{
+		return std::make_unique< generic >( engines,engine,m_jsonObject ) ;
+	}
 }
 
 engines::engine::engine( Logger& logger,
@@ -715,124 +1053,83 @@ engines::engine::engine( Logger& logger,
 			 const util::Json& json,
 			 const engines& engines,
 			 int id ) :
-	m_jsonObject( json.doc().object() ),
+	m_jsonObject( this->getOpts( json,engines.Settings() ) ),
+	m_likeYtDlp( m_jsonObject.value( "LikeYoutubeDl" ).toBool() ),
+	m_name( m_jsonObject.value( "Name" ).toString() ),
+	m_engine( this->setEngine( engines ) ),
 	m_line( m_jsonObject.value( "VersionStringLine" ).toInt() ),
 	m_position( m_jsonObject.value( "VersionStringPosition" ).toInt() ),
 	m_valid( true ),
-	m_likeYoutubeDl( m_jsonObject.value( "LikeYoutubeDl" ).toBool( false ) ),
-	m_mainEngine( true ),
+	m_autoUpdate( m_jsonObject.value( "AutoUpdate" ).toBool( true ) ),
+	m_canDownloadPlaylist( m_jsonObject.value( "CanDownloadPlaylist" ).toBool() ),
+	m_supportingEngine( m_jsonObject.value( "SupportingEngine" ).toBool() ),
+	m_updatableSupportingEngine( m_jsonObject.value( "UpdatableSupportingEngine" ).toBool() ),
 	m_archiveContainsFolder( m_jsonObject.value( "ArchiveContainsFolder" ).toBool() ),
+	m_replaceOutputWithProgressReport( m_jsonObject.value( "ReplaceOutputWithProgressReport" ).toBool( false ) ),
 	m_versionArgument( m_jsonObject.value( "VersionArgument" ).toString() ),
-	m_name( m_jsonObject.value( "Name" ).toString() ),
+	m_configVersion( m_jsonObject.value( "Version" ).toString() ),
+	m_userName( m_jsonObject.value( "UserName" ).toString() ),
+	m_password( m_jsonObject.value( "Password" ).toString() ),
 	m_exeFolderPath( m_jsonObject.value( "BackendPath" ).toString() ),
-	m_downloadUrl( m_jsonObject.value( "DownloadUrl" ).toString() )
+	m_optionsArgument( m_jsonObject.value( "OptionsArgument" ).toString() ),
+	m_playlistItemsArgument( m_jsonObject.value( "PlaylistItemsArgument" ).toString() ),
+	m_batchFileArgument( m_jsonObject.value( "BatchFileArgument" ).toString() ),
+	m_cookieArgument( m_jsonObject.value( "CookieArgument" ).toString() ),
+	m_cookieTextFileArgument( m_jsonObject.value( "CookieArgumentTextFile" ).toString() ),
+	m_encodingArgument( m_jsonObject.value( "EncodingArgument" ).toString() ),
+	m_dumpJsonArguments( this->toStringList( m_jsonObject.value( "DumptJsonArguments" ) ) ),
+	m_splitLinesBy( this->toStringList( m_jsonObject.value( "SplitLinesBy" ) ) ),
+	m_removeText( this->toStringList( m_jsonObject.value( "RemoveText" ) ) ),
+	m_skiptLineWithText( this->toStringList( m_jsonObject.value( "SkipLineWithText" ) ) ),
+	m_defaultDownLoadCmdOptions( this->toStringList( m_jsonObject.value( "DefaultDownLoadCmdOptions" ),true ) ),
+	m_defaultListCmdOptions( this->toStringList( m_jsonObject.value( "DefaultListCmdOptions" ) ) ),
+	m_defaultCommentsCmdOptions( this->toStringList( m_jsonObject.value( "DefaultCommentsCmdOptions" ) ) ),
+	m_defaultSubstitlesCmdOptions( this->toStringList( m_jsonObject.value( "DefaultSubstitlesCmdOptions" ) ) ),
+	m_defaultSubtitleDownloadOptions( this->toStringList( m_jsonObject.value( "DefaultSubtitleDownloadOptions" ) ) ),
+	m_controlStructure( m_jsonObject.value( "ControlJsonStructure" ).toObject() ),
+	m_parent( engines )
 {
+	if( utility::platformIsWindows7() ){
+
+		m_extraArguments = this->toStringList( m_jsonObject.value( "ExtraOptionsWin7" ) ) ;
+
+	}else if( utility::platformisFlatPak() || utility::platformIsAppImage() ){
+
+		m_extraArguments = this->toStringList( m_jsonObject.value( "ExtraOptionsFlatpakAppImage" ) ) ;
+	}else{
+		m_extraArguments = this->toStringList( m_jsonObject.value( "ExtraOptions" ) ) ;
+	}
+
 	auto defaultPath = utility::stringConstants::defaultPath() ;
 	auto backendPath = utility::stringConstants::backendPath() ;
 
-	if( m_exeFolderPath == defaultPath || m_exeFolderPath == backendPath ){
+	if( m_exeFolderPath.isEmpty() || m_exeFolderPath == defaultPath || m_exeFolderPath == backendPath ){
+
+		m_exeFolderPath = ePaths.binPath() ;
+
+	}else if( !utility::pathIsFolderAndExists( m_exeFolderPath ) ){
+
+		auto m = "Invalid Folder Path: " + m_exeFolderPath ;
+
+		logger.add( m,id ) ;
 
 		m_exeFolderPath = ePaths.binPath() ;
 	}
 
-	auto cmd = m_jsonObject.value( "Cmd" ) ;
+	auto m = this->getCommands( m_name,m_jsonObject ) ;
 
-	if( cmd.isUndefined() ){
+	m_commandName = m.commandName() ;
 
-		if( utility::platformIsWindows() ){
+	m_downloadUrl = m.downloadUrl() ;
 
-			m_commandName = m_jsonObject.value( "CommandNameWindows" ).toString() ;
+	if( m.noCheckArgs() ){
 
-			if( utility::platformIs32Bit() ){
-
-				auto m = m_jsonObject.value( "CommandName32BitWindows" ).toString() ;
-
-				if( !m.isEmpty() ){
-
-					m_commandName = m ;
-				}
-			}
-
-			if( !m_commandName.endsWith( ".exe" ) ){
-
-				m_commandName += ".exe" ;
-			}
-		}else{
-			m_commandName = m_jsonObject.value( "CommandName" ).toString() ;
-		}
-
-		auto cmdNames = [ & ](){
-
-			if( utility::platformIsWindows() ){
-
-				if( utility::platformIs32Bit() ){
-
-					auto m = _toStringList( m_jsonObject.value( "CommandNames32BitWindows" ) ) ;
-
-					if( !m.isEmpty() ){
-
-						return m ;
-					}else{
-						return _toStringList( m_jsonObject.value( "CommandNamesWindows" ) ) ;
-					}
-				}else{
-					return _toStringList( m_jsonObject.value( "CommandNamesWindows" ) ) ;
-				}
-			}else{
-				return _toStringList( m_jsonObject.value( "CommandNames" ) ) ;
-			}
-		}() ;
-
-		if( cmdNames.isEmpty() ){
-
-			this->parseMultipleCmdArgs( logger,engines,ePaths,id ) ;
-		}else{
-			this->parseMultipleCmdArgs( cmdNames,backendPath,logger,ePaths,engines,id ) ;
-		}
+		this->parseMultipleCmdArgs( logger,engines,ePaths,id ) ;
 	}else{
-		auto cmdNames = [ & ](){
-
-			auto obj = [ & ](){
-
-				if( utility::platformIsWindows() ){
-
-					return cmd.toObject().value( "Windows" ).toObject() ;
-				}else{
-					if( utility::platformIsOSX() ){
-
-						auto m = cmd.toObject().value( "MacOS" ) ;
-
-						if( !m.isUndefined() ){
-
-							return m.toObject() ;
-						}
-					}
-
-					return cmd.toObject().value( "Generic" ).toObject() ;
-				}
-			}() ;
-
-			if( utility::platformIs32Bit() ){
-
-				auto o = obj.value( "x86" ).toObject() ;
-
-				m_commandName = o.value( "Name" ).toString() ;
-				return _toStringList( o.value( "Args" ).toArray() ) ;
-			}else{
-				auto o = obj.value( "amd64" ).toObject() ;
-
-				m_commandName = o.value( "Name" ).toString() ;
-				return _toStringList( o.value( "Args" ).toArray() ) ;
-			}
-		}() ;
-
-		if( cmdNames.size() == 1 ){
-
-			this->parseMultipleCmdArgs( logger,engines,ePaths,id ) ;
-		}else{
-			this->parseMultipleCmdArgs( cmdNames,backendPath,logger,ePaths,engines,id ) ;
-		}
+		this->parseMultipleCmdArgs( m.args(),backendPath,logger,ePaths,engines,id ) ;
 	}
+
+	this->checkExePath( this->exePath().realExe() ) ;
 }
 
 QString engines::engine::updateCmdPath( Logger& logger,const QString& e ) const
@@ -843,10 +1140,10 @@ QString engines::engine::updateCmdPath( Logger& logger,const QString& e ) const
 
 		auto m = "Trouble Ahead, Engine's Exe Not Found: " + m_engine->engine().name() ;
 
-		logger.add( m,utility::sequentialID() ) ;
+		logger.add( m,utility::loggerID() ) ;
 	}
 
-	const_cast< engines::engine::exeArgs& >( m_exePath ).updateRealExe( exe ) ;
+	m_exePath.updateRealExe( exe ) ;
 
 	return exe ;
 }
@@ -856,7 +1153,23 @@ void engines::engine::parseMultipleCmdArgs( Logger& logger,
 					    const engines::enginePaths&,
 					    int id )
 {
-	auto m = engines.findExecutable( m_commandName ) ;
+	QString m ;
+
+	if( this->supportingEngine() ){
+
+		if( m_parent.m_settings.useSystemSupportingEngine() ){
+
+			m = engines.findExecutable( m_commandName,false ) ;
+		}else{
+			m = engines.findExecutable( m_commandName,true ) ;
+		}
+
+	}else if( m_parent.m_settings.useSystemEngine() ){
+
+		m = engines.findExecutable( m_commandName,false ) ;
+	}else{
+		m = engines.findExecutable( m_commandName,true ) ;
+	}
 
 	if( m.isEmpty() ){
 
@@ -867,37 +1180,48 @@ void engines::engine::parseMultipleCmdArgs( Logger& logger,
 			m_valid = false ;
 			logger.add( utility::failedToFindExecutableString( m_commandName ),id ) ;
 		}
-	}else{
-		if( this->validDownloadUrl() &&
-		    !m_commandName.startsWith( "media-downloader" ) &&
-		    !m_exeFolderPath.isEmpty() ){
+	}else{		
+		auto a = this->validDownloadUrl() ;
+		auto b = !m_commandName.startsWith( "media-downloader" ) ;
+		auto c = !m_exeFolderPath.isEmpty() ;
 
-			/*
-			 * backends that are internally managed
-			 */
+		if( a && b && c ){
 
 			if( m.startsWith( m_exeFolderPath ) ){
 				/*
 				 * backend found in internal bin folder
 				 */
 				m_exePath = m ;
+
+			}else if( this->supportingEngine() ){
+
+				if( m_parent.m_settings.useSystemSupportingEngine() ){
+
+					m_downloadUrl.clear() ;
+					m_exePath = m ;
+				}else{
+					m_exePath = m_exeFolderPath + "/" + m_commandName ;
+				}
 			}else{
-				/*
-				 * backend not found in internal bin folder, lets assume its path
-				 * and hope for the best
-				 */
-				m_exePath = m_exeFolderPath + "/" + m_commandName ;
+				if( m_parent.m_settings.useSystemEngine() ){
+
+					m_downloadUrl.clear() ;
+					m_exePath = m ;
+				}else{
+					m_exePath = m_exeFolderPath + "/" + m_commandName ;
+				}
 			}
 		}else{
 			/*
 			 * backends that are managed outside like wget or aria2c
 			 */
+			m_downloadUrl.clear() ;
 			m_exePath = m ;
 		}
 	}
 }
 
-void engines::engine::parseMultipleCmdArgs( QStringList& cmdNames,
+void engines::engine::parseMultipleCmdArgs( QStringList cmdNames,
 					    const QString& backendPath,
 					    Logger& logger,
 					    const enginePaths& ePaths,
@@ -1016,11 +1340,34 @@ QString engines::engine::versionString( const QString& data ) const
 
 			m.replace( ",","" ).replace( "v","" ) ;
 
+			if( m == "2.7.0+fb4db33" ){
+
+				//Deno 2.7.0 has a bad version string
+
+				m = "2.7.0" ;
+
+			}else if( m == "0+untagged.1.g8a26635" ){
+
+				//we are using a git version of svtplay-dl
+				m = "4.173" ;
+			}
+
+			ffmpeg::replaceVersionString( m ) ;
+
 			return m ;
 		}
 	}
 
 	return {} ;
+}
+
+bool engines::engine::validDownloadUrl() const
+{
+	auto a = "https://api.github.com" ;
+	auto b = "https://bellard.org/quickjs/binary_releases" ;
+	auto c = "https://codeberg.org" ;
+
+	return utils::misc::startsWithAny( m_downloadUrl,a,b,c ) ;
 }
 
 void engines::engine::setPermissions( const QString& e ) const
@@ -1052,30 +1399,7 @@ engines::enginePaths::enginePaths( settings& s )
 	dir.mkpath( m_dataPath ) ;
 	dir.mkpath( m_tmp ) ;
 
-	if( utility::platformIsWindows() ){
-
-		auto exeName = [ & ](){
-
-			if( utility::platformIs32Bit() ){
-
-				return "yt-dlp_x86.exe" ;
-			}else{
-				return "yt-dlp.exe" ;
-			}
-		}() ;
-
-		auto destPath = m_binPath + "/" + exeName ;
-
-		if( !QFile::exists( destPath ) ){
-
-			auto srcPath = s.windowsOnly3rdPartyBinPath() + "/ytdlp/" + exeName ;
-
-			if( !utility::copyFile( srcPath,destPath ) ){
-
-				QFile::remove( destPath ) ;
-			}
-		}
-	}
+	yt_dlp::checkIfBinaryExist( m_binPath,s.windowsOnly3rdPartyBinPath() ) ;
 }
 
 QString engines::enginePaths::socketPath()
@@ -1119,10 +1443,9 @@ void engines::enginePaths::confirmPaths( Logger& logger ) const
 		}
 	} ;
 
-	if( utility::platformIsWindows() ){
+	utility::checkPermissions perms ;
 
-		utility::ntfsEnablePermissionChecking( true ) ;
-	}
+	perms.enable() ;
 
 	_check_exists( m_basePath,false ) ;
 	_check_exists( m_binPath,true ) ;
@@ -1130,14 +1453,11 @@ void engines::enginePaths::confirmPaths( Logger& logger ) const
 	_check_exists( m_dataPath,false ) ;
 	_check_exists( m_tmp,false ) ;
 
-	if( utility::platformIsWindows() ){
-
-		utility::ntfsEnablePermissionChecking( false ) ;
-	}
+	perms.disable() ;
 
 	if( !warning.empty() ){
 
-		auto id = utility::sequentialID() ;
+		auto id = utility::loggerID() ;
 
 		const auto& m = utility::barLine() ;
 
@@ -1152,35 +1472,49 @@ void engines::enginePaths::confirmPaths( Logger& logger ) const
 	}
 }
 
-QString engines::engine::functions::errorString( const engine::engine::functions::finishedState& f,
-						 engines::engine::functions::errors err,
+QString engines::engine::baseEngine::errorString( const engine::engine::baseEngine::finishedState& f,
+						 engines::engine::baseEngine::errors err,
 						 const QString& bkText )
 {
-	if( err == engines::engine::functions::errors::unknownFormat ){
+	if( err == engines::engine::baseEngine::errors::unknownFormat ){
 
-		auto m = engines::engine::functions::processCompleteStateText( f ) ;
+		auto m = engines::engine::baseEngine::processCompleteStateText( f ) ;
 		return m + "\n" + QObject::tr( "Requested Format Is Not Available" ) + "\n" + bkText ;
 
-	}else if( err == engines::engine::functions::errors::noNetwork ){
+	}else if( err == engines::engine::baseEngine::errors::noNetwork ){
 
-		auto m = engines::engine::functions::processCompleteStateText( f ) ;
+		auto m = engines::engine::baseEngine::processCompleteStateText( f ) ;
 		return m + "\n" + QObject::tr( "Network Error Occured" ) + "\n" + bkText ;
 
-	}else if( err == engines::engine::functions::errors::unknownUrl ){
+	}else if( err == engines::engine::baseEngine::errors::unknownUrl ){
 
-		auto m = engines::engine::functions::processCompleteStateText( f ) ;
+		auto m = engines::engine::baseEngine::processCompleteStateText( f ) ;
 		return m + "\n" + QObject::tr( "Invalid Url Entered" ) + "\n" + bkText ;
 
-	}else if( err == engines::engine::functions::errors::notSupportedUrl ){
+	}else if( err == engines::engine::baseEngine::errors::notSupportedUrl ){
 
-		auto m = engines::engine::functions::processCompleteStateText( f ) ;
+		auto m = engines::engine::baseEngine::processCompleteStateText( f ) ;
 		return m + "\n" + QObject::tr( "Url Is Not Supported" ) + "\n" + bkText ;
+
+	}else if( err == engines::engine::baseEngine::errors::logInRequired ){
+
+		auto m = engines::engine::baseEngine::processCompleteStateText( f ) ;
+		return m + "\n" + QObject::tr( "Sign In To Confirm You Are Not A Bot" ) + "\n" + bkText ;
+
+	}else if( err == engines::engine::baseEngine::errors::ageVerificationRequired ){
+
+		auto m = engines::engine::baseEngine::processCompleteStateText( f ) ;
+		return m + "\n" + QObject::tr( "Sign In To Confirm You Age" ) + "\n" + bkText ;
+
+	}else if( err == engines::engine::baseEngine::errors::runtimeError ){
+
+		return QObject::tr( "Download Failed, Engine crashed" ) + "\n" + bkText ;
 	}else{
 		return {} ;
 	}
 }
 
-QString engines::engine::functions::processCompleteStateText( const engine::engine::functions::finishedState& f )
+QString engines::engine::baseEngine::processCompleteStateText( const engine::engine::baseEngine::finishedState& f )
 {
 	if( f.cancelled() ){
 
@@ -1212,7 +1546,7 @@ QString engines::engine::functions::processCompleteStateText( const engine::engi
 	}
 }
 
-static bool _meetExtraCondition( const QByteArray& l,const QJsonObject& obj )
+bool engines::engine::baseEngine::meetExtraCondition( const QByteArray& l,const QJsonObject& obj )
 {
 	const QString line = l ;
 
@@ -1235,7 +1569,7 @@ static bool _meetExtraCondition( const QByteArray& l,const QJsonObject& obj )
 
 		const auto arr = obj.value( "containsAny" ).toArray() ;
 
-		for( const auto& it : arr ){
+		for( const auto it : arr ){
 
 			if( line.contains( it.toString() ) ) {
 
@@ -1250,7 +1584,7 @@ static bool _meetExtraCondition( const QByteArray& l,const QJsonObject& obj )
 
 		const auto arr = obj.value( "containsAll" ).toArray() ;
 
-		for( const auto& it : arr ){
+		for( const auto it : arr ){
 
 			if( !line.contains( it.toString() ) ) {
 
@@ -1264,7 +1598,7 @@ static bool _meetExtraCondition( const QByteArray& l,const QJsonObject& obj )
 	return false ;
 }
 
-bool engines::engine::functions::meetCondition( const engines::engine& engine,const QByteArray& line )
+bool engines::engine::baseEngine::meetCondition( const engines::engine& engine,const QByteArray& line )
 {
 	const auto& obj = engine.controlStructure() ;
 
@@ -1276,7 +1610,7 @@ bool engines::engine::functions::meetCondition( const engines::engine& engine,co
 
 		if( m.isObject() ){
 
-			return _meetExtraCondition( line,m.toObject() ) ;
+			return engines::engine::baseEngine::meetExtraCondition( line,m.toObject() ) ;
 		}else{
 			return false ;
 		}
@@ -1286,8 +1620,8 @@ bool engines::engine::functions::meetCondition( const engines::engine& engine,co
 
 		if( obj1.isObject() && obj2.isObject() ){
 
-			auto a = _meetExtraCondition( line,obj1.toObject() ) ;
-			auto b = _meetExtraCondition( line,obj2.toObject() ) ;
+			auto a = engines::engine::baseEngine::meetExtraCondition( line,obj1.toObject() ) ;
+			auto b = engines::engine::baseEngine::meetExtraCondition( line,obj2.toObject() ) ;
 
 			if( connector == "&&" ){
 
@@ -1305,20 +1639,30 @@ bool engines::engine::functions::meetCondition( const engines::engine& engine,co
 	}
 }
 
-class defaultFilter : public engines::engine::functions::filterOutPut
+bool engines::engine::baseEngine::skipCondition( const engines::engine&,const QByteArray& )
+{
+	return false ;
+}
+
+class defaultFilter : public engines::engine::baseEngine::filterOutPut
 {
 public:
 	defaultFilter( const engines::engine& engine ) : m_engine( engine )
 	{
 	}
-	engines::engine::functions::filterOutPut::result
+	engines::engine::baseEngine::filterOutPut::result
 	formatOutput( const filterOutPut::args& args ) const override
 	{
-		return { args.outPut,m_engine,engines::engine::functions::meetCondition } ;
+		using m = bool( * )( const engines::engine&,const QByteArray& ) ;
+
+		auto a = engines::engine::baseEngine::meetCondition ;
+		auto b = static_cast< m >( engines::engine::baseEngine::skipCondition ) ;
+
+		return { args.outPut,m_engine,{ a,b } } ;
 	}
 	bool meetCondition( const filterOutPut::args& args ) const override
 	{
-		return engines::engine::functions::meetCondition( m_engine,args.outPut ) ;
+		return engines::engine::baseEngine::meetCondition( m_engine,args.outPut ) ;
 	}
 	const engines::engine& engine() const override
 	{
@@ -1328,27 +1672,46 @@ private:
 	const engines::engine& m_engine ;
 } ;
 
-engines::engine::functions::FilterOutPut engines::engine::functions::filterOutput()
+engines::engine::baseEngine::FilterOutPut engines::engine::baseEngine::filterOutput( int )
 {
 	return { util::types::type_identity< defaultFilter >(),m_engine } ;
 }
 
-engines::engine::functions::~functions()
+engines::engine::baseEngine::~baseEngine()
 {
 }
 
-const QProcessEnvironment& engines::engine::functions::processEnvironment() const
+const QProcessEnvironment& engines::engine::baseEngine::processEnvironment() const
 {
 	return m_processEnvironment ;
 }
 
-std::vector< engines::engine::functions::mediaInfo > engines::engine::functions::mediaProperties( Logger&,const QByteArray& e )
+engines::metadata engines::engine::baseEngine::parseJsonDataFromGitHub( const QJsonDocument& doc )
+{
+	class meaw
+	{
+	public:
+		meaw( engines::engine::baseEngine& parent ) : m_parent( parent )
+		{
+		}
+		bool operator()( const QJsonObject& obj )
+		{
+			return m_parent.foundNetworkUrl( obj.value( "name" ).toString() ) ;
+		}
+	private:
+		engines::engine::baseEngine& m_parent ;
+	} ;
+
+	return utility::parseJsonDataFromGitHub( doc,meaw( *this ) ) ;
+}
+
+std::vector< engines::engine::baseEngine::mediaInfo > engines::engine::baseEngine::mediaProperties( Logger&,const QByteArray& e )
 {
 	auto args = util::split( e,'\n' ) ;
 
 	QStringList m ;
 
-	utility::reverse( args ).forEach( [ & ]( const QByteArray& s ){
+	utility::reverseIterator( args ).forEach( [ & ]( const QByteArray& s ){
 
 		auto a = util::split( s,' ',true ) ;
 
@@ -1365,7 +1728,7 @@ std::vector< engines::engine::functions::mediaInfo > engines::engine::functions:
 		return false ;
 	} ) ;
 
-	std::vector< engines::engine::functions::mediaInfo > s ;
+	std::vector< engines::engine::baseEngine::mediaInfo > s ;
 
 	for( const auto& it : m ){
 
@@ -1378,91 +1741,94 @@ std::vector< engines::engine::functions::mediaInfo > engines::engine::functions:
 			auto resolution = a.takeAt( 0 ) ;
 			auto notes      = a.join( " " ) ;
 
-			s.emplace_back( format,extension,resolution,notes ) ;
+			s.emplace_back( format,extension,resolution,"NA","0",notes,"","" ) ;
 		}
 	}
 
 	return s ;
 }
 
-std::vector< engines::engine::functions::mediaInfo > engines::engine::functions::mediaProperties( Logger&,const QJsonArray& )
+std::vector< engines::engine::baseEngine::mediaInfo > engines::engine::baseEngine::mediaProperties( Logger&,const QJsonArray& )
 {
 	return {} ;
 }
 
-void engines::engine::functions::updateOutPutChannel( QProcess::ProcessChannel& ) const
+void engines::engine::baseEngine::updateOutPutChannel( QProcess::ProcessChannel& ) const
 {
 }
 
-bool engines::engine::functions::breakShowListIfContains( const QStringList& )
-{
-	return false ;
-}
-
-bool engines::engine::functions::supportsShowingComments()
+bool engines::engine::baseEngine::breakShowListIfContains( const QStringList& )
 {
 	return false ;
 }
 
-bool engines::engine::functions::updateVersionInfo()
+bool engines::engine::baseEngine::supportsShowingComments()
 {
 	return false ;
 }
 
-void engines::engine::functions::setTextEncondig( const QString&,QStringList& )
+bool engines::engine::baseEngine::updateVersionInfo()
+{
+	return false ;
+}
+
+bool engines::engine::baseEngine::autoUpdate( const engines::engine::baseEngine::onlineVersion&,
+					      const util::version& )
+{
+	return false ;
+}
+
+QByteArray engines::engine::baseEngine::parseError( const QByteArray& )
+{
+	return {} ;
+}
+
+void engines::engine::baseEngine::setTextEncondig( const QString&,QStringList& )
 {
 }
 
-QString engines::engine::functions::updateCmdPath( const QString& e )
+QJsonObject engines::engine::baseEngine::parseJson( const QString&,const QByteArray& )
+{
+	return {} ;
+}
+
+std::vector< QByteArray > engines::engine::baseEngine::parseJsonData( QByteArray& )
+{
+	return {} ;
+}
+
+QString engines::engine::baseEngine::updateCmdPath( const QString& e )
 {
 	return e ;
 }
 
-engines::engine::functions::DataFilter engines::engine::functions::Filter( int id )
+engines::engine::baseEngine::DataFilter engines::engine::baseEngine::Filter( int id )
 {
-	return { util::types::type_identity< engines::engine::functions::filter >(),m_engine,id } ;
+	return { util::types::type_identity< engines::engine::baseEngine::filter >(),m_engine,id } ;
 }
 
-void engines::engine::functions::runCommandOnDownloadedFile( const QString& e,const QString& s )
+QString engines::engine::baseEngine::deleteEngineBinFolder( const QString& e )
 {
-	auto a = m_settings.commandOnSuccessfulDownload() ;
+	auto m = e + "/" + m_engine.name() ;
 
-	if( !a.isEmpty() && !e.isEmpty() ){
+	QDir dir( m ) ;
 
-		auto args = util::split( a,' ',true ) ;
-		auto exe = args.takeAt( 0 ) ;
-		args.append( "bla bla bla" ) ;
+	if( dir.exists() && !dir.removeRecursively() ){
 
-		bool success = false ;
-
-		for( const auto& it : util::split( e,'\n',true ) ){
-
-			auto b = m_settings.downloadFolder() + it ;
-
-			if( QFile::exists( b ) ){
-
-				success = true ;
-				args.replace( args.size() - 1,b ) ;
-
-				QProcess::startDetached( exe,args ) ;
-			}
-		}
-
-		if( !success && !s.isEmpty() ){
-
-			auto b = m_settings.downloadFolder() + "/" + util::split( s,'/',true ).last() ;
-
-			if( QFile::exists( b ) ){
-
-				args.replace( args.size() - 1,b ) ;
-
-				QProcess::startDetached( exe,args ) ;
-			}
-		}
+		return m ;
+	}else{
+		return {} ;
 	}
 }
 
-QString engines::engine::functions::commandString( const engines::engine::exeArgs::cmd& cmd )
+void engines::engine::baseEngine::runCommandOnDownloadedFile( const std::vector< QByteArray >& fileNames )
+{
+	auto df = m_settings.downloadFolder() + "/" ;
+
+	m_settings.runCommandOnSuccessfulDownload( this->engine().name(),df,fileNames ) ;
+}
+
+QString engines::engine::baseEngine::commandString( const engines::engine::exeArgs::cmd& cmd )
 {
 	auto m = "\"" + cmd.exe() + "\"" ;
 
@@ -1474,79 +1840,193 @@ QString engines::engine::functions::commandString( const engines::engine::exeArg
 	return m ;
 }
 
-QStringList engines::engine::functions::horizontalHeaderLabels() const
+QStringList engines::engine::baseEngine::horizontalHeaderLabels() const
 {
 	QStringList s ;
 
 	s.append( QObject::tr( "Format Code" ) ) ;
 	s.append( QObject::tr( "Extension" ) ) ;
 	s.append( QObject::tr( "Resolution" ) ) ;
+	s.append( QObject::tr( "Size" ) ) ;
 	s.append( QObject::tr( "Note" ) ) ;
 
 	return s ;
 }
 
-void engines::engine::functions::updateEnginePaths( const Context&,QString&,QString&,QString& )
+void engines::engine::baseEngine::updateEnginePaths( const Context&,QString&,QString&,QString& )
 {
 }
 
-bool engines::engine::functions::likeYtdlp()
+QString engines::engine::baseEngine::parseVersionInfo( const utils::qprocess::outPut& r )
+{
+	return utility::parseVersionInfo( r ) ;
+}
+
+void engines::engine::baseEngine::updateLocalOptions( QStringList& )
+{
+}
+
+bool engines::engine::baseEngine::bundledEngine()
 {
 	return false ;
 }
 
-void engines::engine::functions::updateLocalOptions( QStringList& )
+bool engines::engine::baseEngine::engineRemovable()
+{
+	return true ;
+}
+
+void engines::engine::baseEngine::checkExePath( const QString& )
 {
 }
 
-void engines::engine::functions::setProxySetting( QStringList&,const QString& )
+const QByteArray& engines::engine::baseEngine::replaceUndesirableText( const QByteArray& e )
+{
+	return e ;
+}
+
+engines::engine::baseEngine::removeFilesStatus engines::engine::baseEngine::removeFiles( const QStringList& e,const QString& )
+{
+	engines::engine::baseEngine::removeFilesStatus s ;
+
+	for( const auto& it : e ){
+
+		auto m = utility::removeFile( it ) ;
+
+		if( !m.isEmpty() ){
+
+			s.add( it,m ) ;
+		}
+	}
+
+	return s ;
+}
+
+bool engines::engine::baseEngine::skipCondition( const QByteArray& e )
+{
+	return engines::engine::baseEngine::skipCondition( this->engine(),e ) ;
+}
+
+bool engines::engine::baseEngine::hasConvertArgToEnv( const QStringList& )
+{
+	return false ;
+}
+
+QStringList engines::engine::baseEngine::convertArgToEnv( engines::engine::baseEngine::optionsEnvironment&,
+							  const QStringList& e )
+{
+	return e ;
+}
+
+void engines::engine::baseEngine::setProxySetting( engines::engine::baseEngine::optionsEnvironment&,
+						   QStringList&,
+						   const QString& )
 {
 }
 
-QString engines::engine::functions::setCredentials( QStringList&,QStringList& )
+QString engines::engine::baseEngine::setCredentials( QStringList&,QStringList& )
 {
 	return {} ;
 }
 
-engines::engine::functions::onlineVersion engines::engine::functions::versionInfoFromGithub( const QByteArray& e )
+QString engines::engine::baseEngine::downloadFolder( const QString& e )
 {
-	QJsonParseError err ;
-	auto doc = QJsonDocument::fromJson( e,&err ) ;
+	return e ;
+}
 
-	if( err.error == QJsonParseError::NoError ){
+util::Json engines::engine::baseEngine::parsePlayListData( const QString&,const QByteArray& e )
+{
+	return e ;
+}
 
-		auto version = doc.object().value( "tag_name" ).toString() ;
+void engines::openUrls( const QString& s ) const
+{
+	m_settings.openUrl( s ) ;
+}
 
-		if( version.contains( "v" ) || version.contains( "," ) ){
+void engines::engine::baseEngine::openLocalFile( const engines::engine::baseEngine::localFile& l )
+{
+	auto e = [ & ](){
 
-			auto m = version ;
+		if( l.fileNames.size() == 0 ){
 
-			m.replace( ",","" ).replace( "v","" ) ;
+			auto m = util::split( l.uiText,'\n',true ) ;
 
-			return { m,m } ;
+			if( m.size() > 1 ){
+
+				return m[ 1 ] ;
+			}else{
+				return QString() ;
+			}
 		}else{
-			return { version,version } ;
+			return QString( l.fileNames.back() ) ;
 		}
+	}() ;
+
+	auto s = QDir::fromNativeSeparators( e ) ;
+	auto ss = QDir::fromNativeSeparators( l.downloadFolder ) ;
+
+	if( s.startsWith( ss ) ){
+
+		m_settings.openUrl( s ) ;
 	}else{
-		return { {},{} } ;
+		m_settings.openUrl( l.downloadFolder + "/" + e ) ;
 	}
 }
 
-bool engines::engine::functions::foundNetworkUrl( const QString& s )
+engines::engine::baseEngine::onlineVersion engines::engine::baseEngine::versionInfoFromGithub( const QByteArray& e )
+{
+	auto doc = utility::jsonDoc( e ) ;
+
+	if( doc.valid() ){
+
+		return this->versionInfoFromGithub( doc.get() ) ;
+	}else{
+		return {} ;
+	}
+}
+
+engines::engine::baseEngine::onlineVersion engines::engine::baseEngine::versionInfoFromGithub( const QJsonDocument& doc )
+{
+	auto version = doc.object().value( "tag_name" ).toString() ;
+
+	if( version.contains( "v" ) || version.contains( "," ) ){
+
+		auto m = version ;
+
+		m.replace( ",","" ).replace( "v","" ) ;
+
+		return { m,m } ;
+	}else{
+		return { version,version } ;
+	}
+}
+
+bool engines::engine::baseEngine::foundNetworkUrl( const QString& s )
 {
 	return s == m_engine.commandName() ;
 }
 
-void engines::engine::functions::renameArchiveFolder( const QString& )
+QString engines::engine::baseEngine::urlFileName( const QString& )
 {
+	return m_engine.commandName() ;
 }
 
-QString engines::engine::functions::updateTextOnCompleteDownlod( const QString& uiText,
-								 const QString& dopts,
-								 const engines::engine::functions::finishedState& f )
+engines::engine::baseEngine::renameArchiveFolderStatus
+engines::engine::baseEngine::renameArchiveFolder( const QString&,const QString& )
 {
-	auto m = engines::engine::functions::processCompleteStateText( f ) ;
-	auto e = engines::engine::functions::timer::stringElapsedTime( f.duration() ) ;
+	return {} ;
+}
+
+QString engines::engine::baseEngine::updateTextOnCompleteDownlod( const QString& uiText,
+								  const QString& dopts,
+								  const QString& tabName,
+								  const engines::engine::baseEngine::finishedState& f )
+{
+	Q_UNUSED( tabName )
+
+	auto m = engines::engine::baseEngine::processCompleteStateText( f ) ;
+	auto e = engines::engine::baseEngine::timer::stringElapsedTime( f.duration() ) ;
 
 	if( dopts.isEmpty() || f.success() ){
 
@@ -1566,22 +2046,23 @@ QString engines::engine::functions::updateTextOnCompleteDownlod( const QString& 
 	}
 }
 
-QString engines::engine::functions::updateTextOnCompleteDownlod( const QString& uiText,
-								 const QString& bkText,
-								 const QString& dopts,
-								 const engine::engine::functions::finishedState& f )
+QString engines::engine::baseEngine::updateTextOnCompleteDownlod( const QString& uiText,
+								  const QString& bkText,
+								  const QString& dopts,
+								  const QString& tabName,
+								  const engine::engine::baseEngine::finishedState& f )
 {
 	Q_UNUSED( uiText )
 
 	if( f.success() ){
 
-		return engines::engine::functions::updateTextOnCompleteDownlod( bkText,dopts,f ) ;
+		return engines::engine::baseEngine::updateTextOnCompleteDownlod( bkText,dopts,tabName,f ) ;
 	}else{
-		return engines::engine::functions::updateTextOnCompleteDownlod( bkText,dopts,f ) ;
+		return engines::engine::baseEngine::updateTextOnCompleteDownlod( bkText,dopts,tabName,f ) ;
 	}
 }
 
-void engines::engine::functions::sendCredentials( const QString&,QProcess& )
+void engines::engine::baseEngine::sendCredentials( const QString&,QProcess& )
 {
 }
 
@@ -1594,7 +2075,7 @@ public:
 		      int id,
 		      bool humanReadableJson ) :
 		m_outPut( outPut ),
-		m_filterOutPut( engine.filterOutput() ),
+		m_filterOutPut( engine.filterOutput( id ) ),
 		m_id( id ),
 		m_engine( engine )
 	{
@@ -1632,7 +2113,7 @@ public:
 		}
 	}
 private:
-	QJsonDocument json( const QByteArray& data,QJsonParseError * err )
+	utility::jsonDoc json( const QByteArray& data )
 	{
 		auto a = "0xdeadbeef>>MediaDownloaderEndMarker<<0xdeadbeef\n" ;
 
@@ -1640,9 +2121,9 @@ private:
 
 			auto m = QByteArray( data ).replace( a,"" ) ;
 
-			return QJsonDocument::fromJson( m,err ) ;
+			return utility::jsonDoc( m ) ;
 		}else{
-			return QJsonDocument::fromJson( data,err ) ;
+			return utility::jsonDoc( data ) ;
 		}
 	}
 	QByteArray updateFormats( const QJsonArray& oldFormats,QJsonObject& oldObject )
@@ -1651,7 +2132,7 @@ private:
 
 		QJsonArray newFormats ;
 
-		for( const auto& it : oldFormats ){
+		for( const auto it : oldFormats ){
 
 			auto obj = it.toObject() ;
 
@@ -1690,13 +2171,11 @@ private:
 	}
 	bool validJson( const QByteArray& data )
 	{
-		QJsonParseError err ;
+		auto json = this->json( data ) ;
 
-		auto json = this->json( data,&err ) ;
+		if( json.valid() ){
 
-		if( err.error == QJsonParseError::NoError ){
-
-			auto oldObject = json.object() ;
+			auto oldObject = json.toObject() ;
 
 			const auto oldFormats = oldObject.value( "formats" ).toArray() ;
 
@@ -1720,7 +2199,7 @@ private:
 	}
 	bool validJson( bool humanReadable,const QByteArray& data )
 	{
-		if( m_engine.likeYoutubeDl() && humanReadable ){
+		if( m_engine.likeYtDlp() && humanReadable ){
 
 			if( data.startsWith( '[' ) || data.startsWith( '{' ) ){
 
@@ -1753,41 +2232,106 @@ private:
 
 		for( const auto& e : mm ){
 
-			if( !this->skipLine( e ) ){
+			const auto& s = m_engine.replaceUndesirableText( e ) ;
+
+			if( !this->skipLine( s ) ){
 
 				if( m_filterOutPut.meetCondition( m_locale,m_outPut,e ) ){
 
-					this->logProgress( e ) ;
+					this->logProgress( s ) ;
 				}else{
-					m_outPut.add( e,m_id ) ;
+					this->add( s ) ;
 				}
 			}
 		}
 	}
+	void add( const QByteArray& e )
+	{
+		class Filter
+		{
+		public:
+			Filter( int id,const QByteArray& txt,const engines::engine& m ) :
+				m_id( id ),m_text( txt ),m_engine( m )
+			{
+			}
+			int id() const
+			{
+				return m_id ;
+			}
+			const QByteArray& text() const
+			{
+				return m_text ;
+			}
+			bool skip( const QByteArray& e ) const
+			{
+				return m_engine.skipCondition( e ) ;
+			}
+			bool replace( const QByteArray& ) const
+			{
+				return false ;
+			}
+		private:
+			int m_id ;
+			const QByteArray& m_text ;
+			const engines::engine& m_engine ;
+		} ;
+
+		m_outPut.replaceOrAdd( Filter( m_id,e,m_engine ) ) ;
+	}
 	void logProgress( const QByteArray& e )
 	{
-		auto result = m_filterOutPut.formatOutput( m_locale,m_outPut,e ) ;
+		class Filter
+		{
+		public:
+			Filter( int id,engines::engine::baseEngine::filterOutPut::result m ) :
+				m_id( id ),m_result( std::move( m ) )
+			{
+			}
+			int id() const
+			{
+				return m_id ;
+			}
+			const QByteArray& text() const
+			{
+				return m_result.progress() ;
+			}
+			bool skip( const QByteArray& e ) const
+			{
+				return m_result.skipCondition()( e ) ;
+			}
+			bool replace( const QByteArray& e ) const
+			{
+				return m_result.meetCondition()( e ) ;
+			}
+			Filter move()
+			{
+				return std::move( *this ) ;
+			}
+		private:
+			int m_id ;
+			engines::engine::baseEngine::filterOutPut::result m_result ;
+		} ;
 
-		const auto& m = result.progress() ;
+		Filter filter( m_id,m_filterOutPut.formatOutput( m_locale,m_outPut,e ) ) ;
 
 		if( m_outPut.mainLogger() ){
 
-			if( !m.isEmpty() ){
+			if( !filter.text().isEmpty() ){
 
-				m_outPut.replaceOrAdd( m,m_id,result.meetCondition() ) ;
+				m_outPut.replaceOrAdd( filter.move() ) ;
 			}
 		}else{
-			m_outPut.replaceOrAdd( m,m_id,result.meetCondition() ) ;
+			m_outPut.replaceOrAdd( filter.move() ) ;
 		}
 	}
 	Logger::Data& m_outPut ;
 	Logger::locale m_locale ;
-	engines::engine::functions::FilterOutPut m_filterOutPut ;
+	engines::engine::baseEngine::FilterOutPut m_filterOutPut ;
 	int m_id ;
 	const engines::engine& m_engine ;
 } ;
 
-void engines::engine::functions::processData( Logger::Data& outPut,
+void engines::engine::baseEngine::processData( Logger::Data& outPut,
 					      const QByteArray& data,
 					      int id,
 					      bool readableJson )
@@ -1809,59 +2353,92 @@ void engines::engine::functions::processData( Logger::Data& outPut,
 	}
 }
 
-void engines::engine::functions::processData( Logger::Data& outPut,
-					      const QString& e,
-					      int id,
-					      bool readableJson )
+void engines::engine::baseEngine::processData( Logger::Data& outPut,
+					       const QString& e,
+					       int id,
+					       bool readableJson )
 {
 	Q_UNUSED( readableJson )
 
-	outPut.replaceOrAdd( e.toUtf8(),id,[]( const QString& line ){
+	class Filter
+	{
+	public:
+		Filter( int id,const QString& m ) :
+			m_id( id ),m_text( m.toUtf8() )
+		{
+		}
+		int id() const
+		{
+			return m_id ;
+		}
+		const QByteArray& text() const
+		{
+			return m_text ;
+		}
+		bool skip( const QByteArray& ) const
+		{
+			return false ;
+		}
+		bool replace( const QString& e ) const
+		{
+			auto a = e.startsWith( engines::engine::baseEngine::preProcessing::processingText() ) ;
+			auto b = engines::engine::baseEngine::timer::timerText( e ) ;
 
-		auto a = line.startsWith( engines::engine::functions::preProcessing::processingText() ) ;
-		auto b = engines::engine::functions::timer::timerText( line ) ;
+			return a || b ;
+		}
+	private:
+		int m_id ;
+		QByteArray m_text ;
+	} ;
 
-		return a || b ;
-
-	} ) ;
+	outPut.replaceOrAdd( Filter( id,e ) ) ;
 }
 
-void engines::engine::functions::updateDownLoadCmdOptions( const engines::engine::functions::updateOpts& s,
-							   bool downloadOptionsAsLast )
+void engines::engine::baseEngine::updateDownLoadCmdOptions( const engines::engine::baseEngine::updateOpts& s,
+							    bool downloadOptionsAsLast,
+							    const QStringList& extraOpts )
 {
-	if( !s.uiOptions.isEmpty() ){
+	if( downloadOptionsAsLast ){
 
-		if( downloadOptionsAsLast ){
+		if( !s.uiOptions.isEmpty() ){
 
 			s.ourOptions.append( s.uiOptions ) ;
 		}else{
-			utility::reverse( s.uiOptions ).forEach( [ & ]( const QString& m ){
+			s.ourOptions.append( s.userOptions ) ;
+		}
+	}else{
+		if( !s.userOptions.isEmpty() ){
 
-				s.ourOptions.prepend( m ) ;
-			} ) ;
+			s.ourOptions.append( s.userOptions ) ;
+		}else{
+			s.ourOptions.append( s.uiOptions ) ;
 		}
 	}
+
+	s.ourOptions.append( extraOpts ) ;
 }
 
-void engines::engine::functions::updateGetPlaylistCmdOptions( QStringList& )
+void engines::engine::baseEngine::updateGetPlaylistCmdOptions( QStringList& )
 {
 }
 
-void engines::engine::functions::updateCmdOptions( QStringList& )
+void engines::engine::baseEngine::updateCmdOptions( QStringList& )
 {
 }
 
-engines::engine::functions::functions( settings& s,const engines::engine& engine,const QProcessEnvironment& env ) :
+engines::engine::baseEngine::baseEngine( settings& s,
+					 const engines::engine& engine,
+					 const QProcessEnvironment& env ) :
 	m_settings( s ),m_engine( engine ),m_processEnvironment( env )
 {
 }
 
-settings& engines::engine::functions::Settings() const
+settings& engines::engine::baseEngine::Settings() const
 {
 	return m_settings ;
 }
 
-const engines::engine& engines::engine::functions::engine() const
+const engines::engine& engines::engine::baseEngine::engine() const
 {
 	return m_engine ;
 }
@@ -1926,23 +2503,23 @@ QStringList engines::file::readAllAsLines()
 
 void engines::file::failToOpenForWriting()
 {
-	auto id = utility::sequentialID() ;
+	auto id = utility::loggerID() ;
 	m_logger.add( QObject::tr( "Failed to open file for writing" ) + ": " + m_filePath,id ) ;
 }
 
 void engines::file::failToOpenForReading()
 {
-	auto id = utility::sequentialID() ;
+	auto id = utility::loggerID() ;
 	m_logger.add( QObject::tr( "Failed to open file for reading" ) + ": " + m_filePath,id ) ;
 }
 
-engines::engine::functions::filter::filter( const engines::engine& engine,int id ) :
+engines::engine::baseEngine::filter::filter( const engines::engine& engine,int id ) :
 	m_engine( engine ),m_processId( id )
 {
 	if( m_processId ){}
 }
 
-const QByteArray& engines::engine::functions::filter::operator()( const Logger::Data& s )
+const QByteArray& engines::engine::baseEngine::filter::operator()( Logger::Data& s )
 {
 	if( m_engine.replaceOutputWithProgressReport() ){
 
@@ -1950,8 +2527,9 @@ const QByteArray& engines::engine::functions::filter::operator()( const Logger::
 
 	}else if( s.isEmpty() ){
 
-		static QByteArray e ;
-		return e ;
+		m_tmp.clear() ;
+
+		return m_tmp ;
 	}else{
 		if( utility::stringConstants::doneDownloadingText( s.lastText() ) ){
 
@@ -1969,38 +2547,38 @@ const QByteArray& engines::engine::functions::filter::operator()( const Logger::
 	}
 }
 
-engines::engine::functions::filter::~filter()
+engines::engine::baseEngine::filter::~filter()
 {
 }
 
-const engines::engine& engines::engine::functions::filter::engine() const
+const engines::engine& engines::engine::baseEngine::filter::engine() const
 {
 	return m_engine ;
 }
 
-engines::engine::functions::preProcessing::preProcessing() :
-	m_processingDefaultText( engines::engine::functions::preProcessing::processingText() )
+engines::engine::baseEngine::preProcessing::preProcessing() :
+	m_processingDefaultText( engines::engine::baseEngine::preProcessing::processingText() )
 {
 }
 
-engines::engine::functions::preProcessing::preProcessing( const QByteArray& e,int s ) :
+engines::engine::baseEngine::preProcessing::preProcessing( const QByteArray& e,int s ) :
 	m_maxCounter( s ),
 	m_processingDefaultText( e )
 {
 }
 
-QByteArray engines::engine::functions::preProcessing::processingText()
+QByteArray engines::engine::baseEngine::preProcessing::processingText()
 {
 	return QObject::tr( "Processing" ).toUtf8() ;
 }
 
-void engines::engine::functions::preProcessing::reset()
+void engines::engine::baseEngine::preProcessing::reset()
 {
 	m_counter = 0 ;
 	m_counterDots = " ..." ;
 }
 
-const QByteArray& engines::engine::functions::preProcessing::text()
+const QByteArray& engines::engine::baseEngine::preProcessing::text()
 {
 	if( m_counter < m_maxCounter ){
 
@@ -2017,7 +2595,7 @@ const QByteArray& engines::engine::functions::preProcessing::text()
 	return m_txt ;
 }
 
-const QByteArray& engines::engine::functions::preProcessing::text( const QByteArray& e )
+const QByteArray& engines::engine::baseEngine::preProcessing::text( const QByteArray& e )
 {
 	if( m_counter < 16 ){
 
@@ -2034,22 +2612,22 @@ const QByteArray& engines::engine::functions::preProcessing::text( const QByteAr
 	return m_txt ;
 }
 
-QByteArray engines::engine::functions::postProcessing::processingText()
+QByteArray engines::engine::baseEngine::postProcessing::processingText()
 {
 	return QObject::tr( "Post Processing" ).toUtf8() ;
 }
 
-engines::engine::functions::postProcessing::postProcessing() :
-	m_processingDefaultText( engines::engine::functions::postProcessing::processingText() )
+engines::engine::baseEngine::postProcessing::postProcessing() :
+	m_processingDefaultText( engines::engine::baseEngine::postProcessing::processingText() )
 {
 }
 
-engines::engine::functions::postProcessing::postProcessing( const QByteArray& e ) :
+engines::engine::baseEngine::postProcessing::postProcessing( const QByteArray& e ) :
 	m_processingDefaultText( e )
 {
 }
 
-const QByteArray& engines::engine::functions::postProcessing::text( const QByteArray& e )
+const QByteArray& engines::engine::baseEngine::postProcessing::text( const QByteArray& e )
 {
 	if( m_counter < 16 ){
 
@@ -2066,34 +2644,34 @@ const QByteArray& engines::engine::functions::postProcessing::text( const QByteA
 	return m_txt ;
 }
 
-bool engines::engine::functions::timer::timerText( const QString& e )
+bool engines::engine::baseEngine::timer::timerText( const QString& e )
 {
-	return e.startsWith( engines::engine::functions::timer::timerText() ) ;
+	return e.startsWith( engines::engine::baseEngine::timer::timerText() ) ;
 }
 
-QString engines::engine::functions::timer::timerText()
+QString engines::engine::baseEngine::timer::timerText()
 {
 	return QObject::tr( "Elapsed Time:" ) + " " ;
 }
 
-QString engines::engine::functions::timer::startTimerText()
+QString engines::engine::baseEngine::timer::startTimerText()
 {
-	return engines::engine::functions::timer::timerText() + "00:00:00" ;
+	return engines::engine::baseEngine::timer::timerText() + "00:00:00" ;
 }
 
-QString engines::engine::functions::timer::stringElapsedTime( qint64 milliseconds )
+QString engines::engine::baseEngine::timer::stringElapsedTime( qint64 milliseconds )
 {
 	if( milliseconds <= 0 ){
 
-		return engines::engine::functions::timer::startTimerText() ;
+		return engines::engine::baseEngine::timer::startTimerText() ;
 	}
 
-	auto m = engines::engine::functions::timer::duration( milliseconds ) ;
+	auto m = engines::engine::baseEngine::timer::duration( milliseconds ) ;
 
-	return engines::engine::functions::timer::timerText() + m ;
+	return engines::engine::baseEngine::timer::timerText() + m ;
 }
 
-QString engines::engine::functions::timer::duration( qint64 milliseconds )
+QString engines::engine::baseEngine::timer::duration( qint64 milliseconds )
 {
 	auto seconds = milliseconds / 1000;
 	milliseconds = milliseconds % 1000;
@@ -2108,7 +2686,7 @@ QString engines::engine::functions::timer::duration( qint64 milliseconds )
 	return time.toString( "hh:mm:ss" ) ;
 }
 
-int engines::engine::functions::timer::toSeconds( const QString& e )
+int engines::engine::baseEngine::timer::toSeconds( const QString& e )
 {
 	auto _toNumber = []( const QString& e ){
 
@@ -2141,40 +2719,91 @@ int engines::engine::functions::timer::toSeconds( const QString& e )
 	}
 }
 
-qint64 engines::engine::functions::timer::elapsedTime()
+qint64 engines::engine::baseEngine::timer::elapsedTime()
 {
-	return engines::engine::functions::timer::currentTime() - m_startTime ;
+	return engines::engine::baseEngine::timer::currentTime() - m_startTime ;
 }
 
-qint64 engines::engine::functions::timer::currentTime()
+qint64 engines::engine::baseEngine::timer::currentTime()
 {
 	return QDateTime().currentMSecsSinceEpoch() ;
 }
 
-QString engines::engine::functions::timer::stringElapsedTime()
+QString engines::engine::baseEngine::timer::stringElapsedTime()
 {
-	return engines::engine::functions::timer::stringElapsedTime( this->elapsedTime() ) ;
+	return engines::engine::baseEngine::timer::stringElapsedTime( this->elapsedTime() ) ;
 }
 
-void engines::engine::functions::timer::reset()
+void engines::engine::baseEngine::timer::reset()
 {
-	m_startTime = engines::engine::functions::timer::currentTime() ;
+	m_startTime = engines::engine::baseEngine::timer::currentTime() ;
 }
 
-engines::configDefaultEngine::configDefaultEngine( Logger&logger,const enginePaths& enginePath ) :
+engines::configDefaultEngine::configDefaultEngine( const engines& engs,Logger& logger,const enginePaths& enginePath ) :
 	m_name( "yt-dlp" ),
-	m_configFileName( m_name + ".json" )
+	m_configFileName( m_name + ".json" ),
+	m_parent( engs )
 {
-	yt_dlp::init( this->name(),this->configFileName(),logger,enginePath ) ;
+	auto m = enginePath.enginePath( "ffmpeg.json" ) ;
+
+	if( QFile::exists( m ) ){
+
+		QFile::remove( m ) ;
+	}
+
+	yt_dlp::init( this->configFileName(),logger,enginePath ) ;
 
 	if( utility::platformIsWindows() ){
 
-		aria2c::init( "aria2c","aria2c.json",logger,enginePath ) ;
-		wget::init( "wget","wget.json",logger,enginePath ) ;
+		aria2c::init( logger,enginePath ) ;
+		wget::init( logger,enginePath ) ;
+
+		if( utility::platformIsLegacyWindows() ){
+
+			quickjs_ng::init( logger,enginePath ) ;
+			quickjs::remove( logger,enginePath ) ;
+			deno::remove( logger,enginePath ) ;
+		}else{
+			deno::init( m_parent.m_settings,logger,enginePath ) ;
+		}
+
+	}else if( utility::platformIsAppImage() || utility::platformisFlatPak() ){
+
+		if( utility::platformisFlatPak() ){
+
+			wget::init( logger,enginePath ) ;
+		}
+
+		auto name = engines::engine::jsRuntimeInstalled( m_parent ).name() ;
+
+		if( name == "deno" ){
+
+			deno::init( m_parent.m_settings,logger,enginePath ) ;
+			bun::remove( logger,enginePath ) ;
+			quickjs::remove( logger,enginePath ) ;
+			quickjs_ng::remove( logger,enginePath ) ;
+		}else{
+			quickjs_ng::init( logger,enginePath ) ;
+			quickjs::remove( logger,enginePath ) ;
+			deno::remove( logger,enginePath ) ;
+			bun::remove( logger,enginePath ) ;
+		}
+
+	}else if( utility::platformIsLinux() && utility::CPU().x86_32() ){
+
+		quickjs_ng::init( logger,enginePath ) ;
+		quickjs::remove( logger,enginePath ) ;
+		deno::remove( logger,enginePath ) ;
+		bun::remove( logger,enginePath ) ;
+	}else{
+		deno::init( m_parent.m_settings,logger,enginePath ) ;
+		quickjs_ng::remove( logger,enginePath ) ;
+		bun::remove( logger,enginePath ) ;
+		quickjs::remove( logger,enginePath ) ;
 	}
 }
 
-engines::engine::functions::filterOutPut::~filterOutPut()
+engines::engine::baseEngine::filterOutPut::~filterOutPut()
 {
 }
 
@@ -2287,5 +2916,188 @@ QString engines::proxySettings::toString( const QNetworkProxy& e ) const
 		}
 
 		return type + credentials + host ;
+	}
+}
+
+QProcessEnvironment engines::engine::baseEngine::optionsEnvironment::update( const QProcessEnvironment& e,QString& s ) const
+{
+	auto m = e ;
+
+	for( const auto& it : m_pairs ){
+
+		s += "\nEnv: " + it.key + "=" + it.value  ;
+
+		m.insert( it.key,it.value ) ;
+	}
+
+	return m ;
+}
+
+engines::engine::jsRuntimeInstalled::jsRuntimeInstalled( const engines& e )
+{
+	auto m = quickjs_ng::getNameAndExe() ;
+
+	std::array< entry,3 > list = { { { "deno" },{ m.name(),m.exe() },{ "quickjs","qjs" } } } ;
+
+	this->search( e,list,!e.Settings().useSystemSupportingEngine() ) ;
+}
+
+engines::engine::jsRuntimeInstalled::jsRuntimeInstalled( const engines& e,const utils::misc::string& s )
+{
+	if( s == "quickjs" ){
+
+		std::array< entry,1 > list = { { { "quickjs","qjs" } } } ;
+
+		this->search( e,list,!e.Settings().useSystemSupportingEngine() ) ;
+
+	}else if( s == "quickjs-ng" ){
+
+		auto m = quickjs_ng::getNameAndExe() ;
+
+		std::array< entry,1 > list = { { { m.name(),m.exe() } } } ;
+
+		this->search( e,list,!e.Settings().useSystemSupportingEngine() ) ;
+	}else{
+		std::array< entry,1 > list =  { { s } } ;
+
+		this->search( e,list,!e.Settings().useSystemSupportingEngine() ) ;
+	}
+}
+
+void engines::EnginesList::sort()
+{
+	using eng = engines::EnginesList::engine ;
+
+	std::sort( m_backends.begin(),m_backends.end(),[]( const eng& ll,const eng& rr ){
+
+		const auto& l = ll.get() ;
+		const auto& r = rr.get() ;
+
+		if( l.supportingEngine() && r.supportingEngine() ){
+
+			return l.name() < r.name() ;
+		}
+
+		if( !l.supportingEngine() && r.supportingEngine() ){
+
+			return true ;
+		}
+
+		if( l.supportingEngine() && !r.supportingEngine() ){
+
+			return false ;
+		}
+
+		if( l.name() == "yt-dlp" ){
+
+			return true ;
+		}
+
+		if( r.name() == "yt-dlp" ){
+
+			return false ;
+		}
+
+		if( l.name() == "yt-dlp-nightly" ){
+
+			if( r.name() == "yt-dlp" ){
+
+				return false ;
+			}else{
+				return true ;
+			}
+		}
+
+		if( r.name() == "yt-dlp-nightly" ){
+
+			if( l.name() == "yt-dlp" ){
+
+				return true ;
+			}else{
+				return false ;
+			}
+		}
+
+		if( l.name() == "yt-dlp-ffmpeg" ){
+
+			if( utils::misc::equalsAny( r.name(),"yt-dlp","yt-dlp-nightly" ) ){
+
+				return false ;
+			}else{
+				return true ;
+			}
+		}
+
+		if( r.name() == "yt-dlp-ffmpeg" ){
+
+			if( utils::misc::equalsAny( l.name(),"yt-dlp","yt-dlp-nightly" ) ){
+
+				return true ;
+			}else{
+				return false ;
+			}
+		}
+
+		if( l.name() == "yt-dlp-aria2c" ){
+
+			if( utils::misc::equalsAny( r.name(),"yt-dlp","yt-dlp-nightly","yt-dlp-ffmpeg" ) ){
+
+				return false ;
+			}else{
+				return true ;
+			}
+		}
+
+		if( r.name() == "yt-dlp-aria2c" ){
+
+			if( utils::misc::equalsAny( l.name(),"yt-dlp","yt-dlp-nightly","yt-dlp-ffmpeg" ) ){
+
+				return true ;
+			}else{
+				return false ;
+			}
+		}
+
+		if( l.name() == "yt-dlp-test" ){
+
+			if( utils::misc::equalsAny( r.name(),"yt-dlp","yt-dlp-nightly","yt-dlp-ffmpeg","yt-dlp-aria2c" ) ){
+
+				return false ;
+			}else{
+				return true ;
+			}
+		}
+
+		if( r.name() == "yt-dlp-test" ){
+
+			if( utils::misc::equalsAny( l.name(),"yt-dlp","yt-dlp-nightly","yt-dlp-ffmpeg","yt-dlp-aria2c" ) ){
+
+				return true ;
+			}else{
+				return false ;
+			}
+		}
+
+		return l.name() < r.name() ;
+	} ) ;
+}
+
+void engines::EnginesList::add( engines::EnginesList::engine m )
+{
+	this->remove( m->name() ) ;
+
+	m_backends.emplace_back( m.move() ) ;
+}
+
+void engines::EnginesList::remove( const QString& name )
+{
+	for( auto it = m_backends.begin() ; it != m_backends.end() ; it++ ){
+
+		if( it->get().name() == name ){
+
+			m_backends.erase( it ) ;
+
+			break ;
+		}
 	}
 }

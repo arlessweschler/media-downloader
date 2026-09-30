@@ -42,6 +42,8 @@ tabManager::tabManager( settings& s,
 	m_playlistdownloader( m_ctx ),
 	m_library( m_ctx )
 {
+	t.setContext( m_ctx ) ;
+
 	qRegisterMetaType< QClipboard::Mode >() ;
 
 	m_clipboard = QApplication::clipboard() ;
@@ -70,8 +72,22 @@ tabManager::tabManager( settings& s,
 
 void tabManager::init_done()
 {
+	if( m_initDoneNotCalled ){
+
+		this->initDone() ;
+
+		m_initDoneNotCalled = false ;
+	}
+}
+
+void tabManager::initDone()
+{
+	auto& m = m_ctx.Ui() ;
+	auto& s = m_ctx.Settings() ;
+
 	this->setDefaultEngines() ;
 
+	m_ctx.Engines().setJsRuntime() ;
 	m_about.init_done() ;
 	m_configure.init_done() ;
 	m_basicdownloader.init_done() ;
@@ -80,9 +96,6 @@ void tabManager::init_done()
 	m_library.init_done() ;
 
 	utility::initDone() ;
-
-	auto& m = m_ctx.Ui() ;
-	auto& s = m_ctx.Settings() ;
 
 	if( s.tabNumber() == 3 ){
 
@@ -94,7 +107,8 @@ void tabManager::init_done()
 
 	m.tabWidget->setCurrentIndex( s.tabNumber() ) ;
 
-	switch( s.tabNumber() ) {
+	switch( s.tabNumber() )
+	{
 		case 0 : m_basicdownloader.tabEntered() ; break ;
 		case 1 : m_batchdownloader.tabEntered() ; break ;
 		case 2 : m_playlistdownloader.tabEntered() ; break ;
@@ -105,7 +119,8 @@ void tabManager::init_done()
 
 	QObject::connect( m.tabWidget,&QTabWidget::currentChanged,[ this ]( int index ){
 
-		switch( index ) {
+		switch( index )
+		{
 			case 0 : m_basicdownloader.tabEntered() ; break ;
 			case 1 : m_batchdownloader.tabEntered() ; break ;
 			case 2 : m_playlistdownloader.tabEntered() ; break ;
@@ -116,7 +131,8 @@ void tabManager::init_done()
 
 		if( m_currentTab != index ){
 
-			switch( m_currentTab ) {
+			switch( m_currentTab )
+			{
 				case 0 : m_basicdownloader.tabExited() ; break ;
 				case 1 : m_batchdownloader.tabExited() ; break ;
 				case 2 : m_playlistdownloader.tabExited() ; break ;
@@ -128,6 +144,8 @@ void tabManager::init_done()
 			m_currentTab = index ;
 		}
 	} ) ;
+
+	s.init_done() ;
 }
 
 void tabManager::setDefaultEngines()
@@ -136,7 +154,7 @@ void tabManager::setDefaultEngines()
 
 	for( const auto& engine : m_ctx.Engines().getEngines() ){
 
-		if( engine.mainEngine() && engine.backendExists() && !engine.broken() ){
+		if( !engine.supportingEngine() && engine.backendExists() && !engine.broken() ){
 
 			s.append( engine.name() ) ;
 		}
@@ -150,7 +168,7 @@ void tabManager::setDefaultEngines()
 
 void tabManager::setProxy( const settings::proxySettings& proxy,const settings::proxySettings::type& m )
 {
-	proxy::set( m_ctx,m_firstTime,proxy.proxyAddress(),m ) ;
+	proxy::set( m_ctx,m_firstTimeSettingProxy,proxy.proxyAddress(),m ) ;
 }
 
 void tabManager::clipboardEvent( QClipboard::Mode mode )
@@ -159,7 +177,12 @@ void tabManager::clipboardEvent( QClipboard::Mode mode )
 
 		if( utility::platformIsWindows() ){
 
-			this->bgThreadClipboardHandler() ;
+			if( m_ctx.Settings().backgroundClipboardMonitor() ){
+
+				this->bgThreadClipboardHandler() ;
+			}else{
+				this->mainThreadClipboardHandler() ;
+			}
 		}else{
 			this->mainThreadClipboardHandler() ;
 		}
@@ -174,70 +197,85 @@ void tabManager::mainThreadClipboardHandler()
 
 		auto m = e->text() ;
 
-		if( m.startsWith( "http" ) ){
+		if( m.startsWith( "http" ) || m.startsWith( "yt-dlp " ) ){
 
-			m_batchdownloader.clipboardData( m ) ;
+			m_batchdownloader.clipboardData( m,true ) ;
 		}
 	}
 }
 
-class timeOutMonitor
-{
-public:
-	timeOutMonitor( const Context& ctx ) :
-		m_timeOut( ctx.Settings().timeOutWaitingForClipboardData() ),
-		m_then( m_timeOut > 0 ? QDateTime::currentMSecsSinceEpoch() : 0 )
-	{
-	}
-	bool notTimedOut() const
-	{
-		if( m_timeOut > 0 ){
-
-			auto now = QDateTime::currentMSecsSinceEpoch() ;
-
-			return ( now - m_then ) <= m_timeOut ;
-		}else{
-			return true ;
-		}
-	}
-private:
-	qint64 m_timeOut ;
-	qint64 m_then ;
-} ;
-
 void tabManager::bgThreadClipboardHandler()
 {
-	utils::qthread::run( [ m = m_ctx.nativeHandleToMainWindow() ](){
-
-		return utility::windowsGetClipBoardText( m ) ;
-
-	},[ timer = timeOutMonitor( m_ctx ),this ]( const QString& e ){
-
-		if( timer.notTimedOut() ){
-
-			if( e.startsWith( "http" ) ){
-
-				m_batchdownloader.clipboardData( e ) ;
-			}
-		}else{
-			auto a = QObject::tr( "Warning: Skipping Clipboard Content" ) ;
-			m_ctx.logger().add( a,utility::concurrentID() ) ;
+	class timeOutMonitor
+	{
+	public:
+		timeOutMonitor( tabManager& parent ) :
+			m_timeOut( parent.m_ctx.Settings().timeOutWaitingForClipboardData() ),
+			m_then( m_timeOut > 0 ? QDateTime::currentMSecsSinceEpoch() : 0 )
+		{
 		}
-	} ) ;
+		bool notTimedOut() const
+		{
+			if( m_timeOut > 0 ){
+
+				auto now = QDateTime::currentMSecsSinceEpoch() ;
+
+				return ( now - m_then ) <= m_timeOut ;
+			}else{
+				return true ;
+			}
+		}
+	private:
+		qint64 m_timeOut ;
+		qint64 m_then ;
+	} ;
+
+	class meaw
+	{
+	public:
+		meaw( tabManager& parent ) :
+			m_parent( parent ),
+			m_timer( m_parent ),
+			m_id( m_parent.m_ctx.nativeHandleToMainWindow() )
+		{
+		}
+		QString bg()
+		{
+			return utility::windowsGetClipBoardText( m_id ) ;
+		}
+		void fg( const QString& e )
+		{
+			if( m_timer.notTimedOut() ){
+
+				if( e.startsWith( "http" ) || e.startsWith( "yt-dlp " ) ){
+
+					m_parent.m_batchdownloader.clipboardData( e,true ) ;
+				}
+			}else{
+				auto a = QObject::tr( "Warning: Skipping Clipboard Content" ) ;
+				m_parent.m_batchdownloader.clipboardData( a,false ) ;
+			}
+		}
+	private:
+		tabManager& m_parent ;
+		timeOutMonitor m_timer ;
+		ContextWinId m_id ;
+	} ;
+
+	utils::qthread::run( meaw( *this ) ) ;
 }
 
 tabManager& tabManager::gotEvent( const QByteArray& s )
 {
-	QJsonParseError err ;
-	auto jsonDoc = QJsonDocument::fromJson( s,&err ) ;
+	auto jsonDoc = utility::jsonDoc( s ) ;
 
-	if( err.error == QJsonParseError::NoError ){
+	if( jsonDoc.valid() ){
 
-		auto e = jsonDoc.object() ;
+		utility::event e = jsonDoc.toObject() ;
 
-		if( m_firstTime ){
+		if( m_firstTimeSettingProxy ){
 
-			auto m = e.value( "--proxy" ).toString() ;
+			auto m = e.proxy() ;
 
 			if( m.isEmpty() ){
 
@@ -248,13 +286,13 @@ tabManager& tabManager::gotEvent( const QByteArray& s )
 
 					this->setProxy( s,t ) ;
 				}else{
-					m_ctx.setNetworkProxy( m,m_firstTime ) ;
+					m_ctx.setNetworkProxy( m,m_firstTimeSettingProxy ) ;
 				}
 			}else{
-				m_ctx.setNetworkProxy( m,m_firstTime ) ;
+				m_ctx.setNetworkProxy( m,m_firstTimeSettingProxy ) ;
 			}
 
-			m_firstTime = false ;
+			m_firstTimeSettingProxy = false ;
 		}
 
 		m_basicdownloader.gotEvent( e ) ;
@@ -275,6 +313,13 @@ tabManager& tabManager::enableAll()
 	m_library.enableAll() ;
 
 	m_uiEnabled = true ;
+
+	if( m_firstTime ){
+
+		this->setDefaultEngines() ;
+
+		m_firstTime =  false ;
+	}
 
 	return *this ;
 }
@@ -327,4 +372,27 @@ tabManager& tabManager::exiting()
 	m_library.exiting() ;
 
 	return *this ;
+}
+
+void tabManager::keyPressed( utility::mainWindowKeyCombo m )
+{
+	switch( m_ctx.Ui().tabWidget->currentIndex() )
+	{
+		case 0 : m_basicdownloader.keyPressed( m ) ; break ;
+		case 1 : m_batchdownloader.keyPressed( m ) ; break ;
+		case 2 : m_playlistdownloader.keyPressed( m ) ; break ;
+		case 3 : m_library.keyPressed( m )         ; break ;
+		case 4 : m_configure.keyPressed( m )       ; break ;
+		case 5 : m_about.keyPressed( m )           ; break ;
+	}
+}
+
+void tabManager::textAlignmentChanged( Qt::LayoutDirection m )
+{
+	m_about.textAlignmentChanged( m ) ;
+	m_configure.textAlignmentChanged( m ) ;
+	m_basicdownloader.textAlignmentChanged( m ) ;
+	m_batchdownloader.textAlignmentChanged( m ) ;
+	m_playlistdownloader.textAlignmentChanged( m ) ;
+	m_library.textAlignmentChanged( m ) ;
 }

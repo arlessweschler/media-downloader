@@ -20,18 +20,19 @@
 #include "../engines.h"
 #include "../settings.h"
 
-class safaribooks : public engines::engine::functions
+class safaribooks : public engines::engine::baseEngine
 {
 public:
 	static const char * testData() ;
 
 	safaribooks( const engines&,const engines::engine&,QJsonObject& ) ;
 	~safaribooks() override ;
-	void runCommandOnDownloadedFile( const QString&,const QString& ) override ;
 	QString commandString( const engines::engine::exeArgs::cmd& ) override ;
 	void sendCredentials( const QString&,QProcess& ) override ;
 	QString setCredentials( QStringList& e,QStringList& s ) override ;
-	void updateDownLoadCmdOptions( const engines::engine::functions::updateOpts&,bool ) override ;
+	void updateDownLoadCmdOptions( const engines::engine::baseEngine::updateOpts&,
+				       bool,
+				       const QStringList& ) override ;
 private:
 	const engines::engine& m_engine ;
 };

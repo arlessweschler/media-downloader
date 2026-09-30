@@ -21,12 +21,11 @@
 #include "../utility.h"
 #include "../settings.h"
 
-void aria2c::init( const QString& name,
-		   const QString& configFileName,
-		   Logger& logger,
-		   const engines::enginePaths& enginePath )
+void aria2c::init( Logger& logger,const engines::enginePaths& enginePath )
 {
-	auto m = enginePath.enginePath( configFileName ) ;
+	QString name = "aria2c" ;
+
+	auto m = enginePath.enginePath( "aria2c.json" ) ;
 
 	if( !QFile::exists( m ) ){
 
@@ -53,13 +52,12 @@ void aria2c::init( const QString& name,
 
 		utility::addJsonCmd json( mainObj ) ;
 
-		json.add( { { "Generic" },{ { "x86",name,{ "stdbuf","-o","L",name } },
-					    { "amd64",name,{ "stdbuf","-o","L",name } } } } ) ;
+		json.add( "Generic",{ { "x86",name,{ "stdbuf","-o","L",name } },
+				      { "amd64",name,{ "stdbuf","-o","L",name } } } ) ;
 
 		auto exe = name + ".exe" ;
 
-		json.add( { { "Windows" },{ { "x86",exe,{ exe } },
-					    { "amd64",exe,{ exe } } } } ) ;
+		json.add( "Windows",{ { "x86",exe },{ "amd64",exe, } } ) ;
 
 		json.done() ;
 
@@ -145,7 +143,7 @@ aria2c::~aria2c()
 }
 
 aria2c::aria2c( const engines& engines,const engines::engine& engine,QJsonObject& ) :
-	engines::engine::functions( engines.Settings(),engine,engines.processEnvironment() ),
+	engines::engine::baseEngine( engines.Settings(),engine,engines.processEnvironment() ),
 	m_engines( engines )
 {
 }
@@ -155,16 +153,30 @@ bool aria2c::meetCondition( const engines::engine&,const QByteArray& e )
 	return e.startsWith( "[DL:" ) || e.startsWith( "[#" ) ;
 }
 
-class aria2cFilter : public engines::engine::functions::filterOutPut
+bool aria2c::bundledEngine()
+{
+	if( utility::platformIsWindows() ){
+
+		return true ;
+	}else{
+		return false ;
+	}
+}
+
+class aria2cFilter : public engines::engine::baseEngine::filterOutPut
 {
 public:
 	aria2cFilter( const engines::engine& engine ) : m_engine( engine )
 	{
 	}
-	engines::engine::functions::filterOutPut::result
+	engines::engine::baseEngine::filterOutPut::result
 	formatOutput( const filterOutPut::args& args ) const override
 	{
-		return { args.outPut,m_engine,aria2c::meetCondition } ;
+		auto skipCondition = []( const engines::engine&,const QByteArray& ){
+
+			return false ;
+		} ;
+		return { args.outPut,m_engine,{ aria2c::meetCondition,skipCondition } } ;
 	}
 	bool meetCondition( const filterOutPut::args& args ) const override
 	{
@@ -178,17 +190,17 @@ private:
 	const engines::engine& m_engine ;
 } ;
 
-engines::engine::functions::FilterOutPut aria2c::filterOutput()
+engines::engine::baseEngine::FilterOutPut aria2c::filterOutput( int )
 {
-	const engines::engine& engine = engines::engine::functions::engine() ;
+	const engines::engine& engine = engines::engine::baseEngine::engine() ;
 
 	return { util::types::type_identity< aria2cFilter >(),engine } ;
 }
 
-engines::engine::functions::DataFilter aria2c::Filter( int id )
+engines::engine::baseEngine::DataFilter aria2c::Filter( int id )
 {
-	auto& s = engines::engine::functions::Settings() ;
-	const auto& engine = engines::engine::functions::engine() ;
+	auto& s = engines::engine::baseEngine::Settings() ;
+	const auto& engine = engines::engine::baseEngine::engine() ;
 
 	return { util::types::type_identity< aria2c::aria2c_dlFilter >(),s,engine,id } ;
 }
@@ -196,20 +208,21 @@ engines::engine::functions::DataFilter aria2c::Filter( int id )
 QString aria2c::updateTextOnCompleteDownlod( const QString& uiText,
 					     const QString& bkText,
 					     const QString& dopts,
+					     const QString& tabName,
 					     const finishedState& f )
 {
 	if( f.success() ){
 
-		auto m = engines::engine::functions::processCompleteStateText( f ) ;
-		auto e = engines::engine::functions::timer::stringElapsedTime( f.duration() ) ;
+		auto m = engines::engine::baseEngine::processCompleteStateText( f ) ;
+		auto e = engines::engine::baseEngine::timer::stringElapsedTime( f.duration() ) ;
 
 		return m + ", " + e + "\n" + uiText ;
 
 	}else if( f.cancelled() ){
 
-		return engines::engine::functions::updateTextOnCompleteDownlod( uiText,bkText,dopts,f ) ;
+		return engines::engine::baseEngine::updateTextOnCompleteDownlod( uiText,bkText,dopts,tabName,f ) ;
 	}else{
-		using functions = engines::engine::functions ;
+		using functions = engines::engine::baseEngine ;
 
 		if( uiText.contains( "Unrecognized URI or unsupported protocol" ) ){
 
@@ -219,13 +232,15 @@ QString aria2c::updateTextOnCompleteDownlod( const QString& uiText,
 
 			return functions::errorString( f,functions::errors::noNetwork,bkText ) ;
 		}else{
-			auto m = engines::engine::functions::processCompleteStateText( f ) ;
+			auto m = engines::engine::baseEngine::processCompleteStateText( f ) ;
 			return m + "\n" + bkText ;
 		}
 	}
 }
 
-void aria2c::updateDownLoadCmdOptions( const engines::engine::functions::updateOpts& e,bool s )
+void aria2c::updateDownLoadCmdOptions( const engines::engine::baseEngine::updateOpts& e,
+				       bool s,
+				       const QStringList& extraOpts )
 {
 	if( !e.ourOptions.contains( "-d" ) ){
 
@@ -233,27 +248,30 @@ void aria2c::updateDownLoadCmdOptions( const engines::engine::functions::updateO
 		e.ourOptions.append( m_engines.Settings().downloadFolder() ) ;
 	}
 
-	engines::engine::functions::updateDownLoadCmdOptions( e,s ) ;
+	engines::engine::baseEngine::updateDownLoadCmdOptions( e,s,extraOpts ) ;
 }
 
 aria2c::aria2c_dlFilter::aria2c_dlFilter( settings&,const engines::engine& engine,int id ) :
-	engines::engine::functions::filter( engine,id ),
+	engines::engine::baseEngine::filter( engine,id ),
 	m_processId( id )
 {
 	Q_UNUSED( m_processId )
 }
 
-const QByteArray& aria2c::aria2c_dlFilter::operator()( const Logger::Data& s )
+const QByteArray& aria2c::aria2c_dlFilter::operator()( Logger::Data& s )
 {
 	const auto data = s.toStringList() ;
 
 	for( const auto& m : data ){
 
-		const QByteArray& e = m ;
+		const auto& e = m.data() ;
 
 		if( e.contains( " Download complete: " ) ){
 
 			m_fileName = e.mid( e.indexOf( " Download complete: " ) + 20 ) ;
+
+			s.addFileName( m_fileName ) ;
+
 			break ;
 
 		}else if( e.contains( "Unrecognized URI or unsupported protocol" ) ){

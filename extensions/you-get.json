@@ -1,4 +1,5 @@
 {
+    "AutoUpdate": true,
     "ArchiveContainsFolder": true,
     "BackendPath": "${default}",
     "BatchFileArgument": "-a",
@@ -67,6 +68,7 @@
     "SplitLinesBy": [
         "\n"
     ],
+    "Version": "1",
     "VersionArgument": "--version",
     "VersionStringLine": 0,
     "VersionStringPosition": 2

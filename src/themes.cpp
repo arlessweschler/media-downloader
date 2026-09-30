@@ -112,7 +112,7 @@ void themes::setComboBox( QComboBox& cb,const QString& dm ) const
 	cb.setCurrentIndex( this->unTranslatedIndexAt( dm ) ) ;
 }
 
-QString themes::defaultthemeFullPath() const
+QString themes::defaultDarkthemeFullPath() const
 {
 	return m_themePath + "/" + m_defaultDarkTheme + ".json" ;
 }
@@ -126,7 +126,7 @@ QString themes::themeFullPath() const
 {
 	if( m_theme == m_defaultDarkTheme ){
 
-		return this->defaultthemeFullPath() ;
+		return this->defaultDarkthemeFullPath() ;
 	}else{
 		return m_themePath + "/" + m_theme + ".json" ;
 	}
@@ -134,7 +134,7 @@ QString themes::themeFullPath() const
 
 void themes::setDefaultTheme( QApplication& app ) const
 {
-	this->setTheme( app,this->defaultTheme() ) ;
+	this->setTheme( app,this->defaultLightTheme() ) ;
 }
 
 void themes::setTheme( QApplication& app,const QJsonObject& obj ) const
@@ -170,256 +170,78 @@ void themes::setTheme( QApplication& app,const QJsonObject& obj ) const
 	}
 }
 
-static QJsonObject _baseTheme()
+themes::JObject themes::baseTheme() const
 {
-	QJsonObject obj ;
-
-	obj.insert( "disabledColor",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "rgba",[](){
-
-			QJsonArray arr ;
-
-			arr.append( 127 ) ;
-			arr.append( 127 ) ;
-			arr.append( 127 ) ;
-			arr.append( 255 ) ;
-
-			return arr ;
-		}() ) ;
-
-		return obj ;
-	}() ) ;
-
-	obj.insert( "QPalette::WindowText",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "Qt::GlobalColor","Qt::lightGray" ) ;
-
-		return obj ;
-	}() ) ;
-
-	obj.insert( "QPalette::Window",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "GlobalColor","darkColor" ) ;
-
-		return obj ;
-	}() ) ;
-
-	obj.insert( "QPalette::Base",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "rgba",[](){
-
-			QJsonArray arr ;
-
-			arr.append( 41 ) ;
-			arr.append( 42 ) ;
-			arr.append( 43 ) ;
-			arr.append( 255 ) ;
-
-			return arr ;
-		}() ) ;
-
-		return obj ;
-	}() ) ;
-
-	obj.insert( "QPalette::AlternateBase",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "GlobalColor","darkColor" ) ;
-
-		return obj ;
-	}() ) ;
-
-	obj.insert( "QPalette::ToolTipBase",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "GlobalColor","darkColor" ) ;
-
-		return obj ;
-	}() ) ;
-
-	obj.insert( "QPalette::ToolTipText",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "Qt::GlobalColor","Qt::lightGray" ) ;
-
-		return obj ;
-	}() ) ;
-
-	obj.insert( "QPalette::Text",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "Qt::GlobalColor","Qt::lightGray" ) ;
-
-		return obj ;
-	}() ) ;
-
-	obj.insert( "QPalette::Disabled,QPalette::Text",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "GlobalColor","disabledColor" ) ;
-
-		return obj ;
-	}() ) ;
-
-	obj.insert( "QPalette::Button",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "GlobalColor","darkColor" ) ;
-
-		return obj ;
-	}() ) ;
-
-	obj.insert( "QPalette::ButtonText",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "Qt::GlobalColor","Qt::lightGray" ) ;
-
-		return obj ;
-	}() ) ;
-
-	obj.insert( "QPalette::Disabled,QPalette::ButtonText",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "GlobalColor","disabledColor" ) ;
-
-		return obj ;
-	}() ) ;
-
-	obj.insert( "QPalette::BrightText",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "Qt::GlobalColor","Qt::yellow" ) ;
-
-		return obj ;
-	}() ) ;
-
-	obj.insert( "QPalette::Link",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "rgba",[](){
-
-			QJsonArray arr ;
-
-			arr.append( 77 ) ;
-			arr.append( 148 ) ;
-			arr.append( 209 ) ;
-			arr.append( 255 ) ;
-
-			return arr ;
-		}() ) ;
-
-		return obj ;
-	}() ) ;
-
-	obj.insert( "QPalette::Highlight",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "rgba",[](){
-
-			QJsonArray arr ;
-
-			arr.append( 27 ) ;
-			arr.append( 129 ) ;
-			arr.append( 231 ) ;
-			arr.append( 255 ) ;
-
-			return arr ;
-		}() ) ;
-
-		return obj ;
-	}() ) ;
-
-	obj.insert( "QPalette::HighlightedText",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "Qt::GlobalColor","Qt::black" ) ;
-
-		return obj ;
-	}() ) ;
-
-	obj.insert( "QPalette::Disabled,QPalette::HighlightedText",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "GlobalColor","disabledColor" ) ;
-
-		return obj ;
-	}() ) ;
+	JObject obj ;
+
+	obj.insert( "disabledColor",127,127,127,255 ) ;
+	obj.insert( "QPalette::Base",41,42,43,255 ) ;
+	obj.insert( "QPalette::Link",77,148,209,255 ) ;
+	obj.insert( "QPalette::Highlight",27,129,231,255 ) ;
+
+	obj.insert( "QPalette::WindowText","Qt::GlobalColor","Qt::lightGray" ) ;
+	obj.insert( "QPalette::Window","GlobalColor","darkColor" ) ;
+	obj.insert( "QPalette::AlternateBase","GlobalColor","darkColor" ) ;
+	obj.insert( "QPalette::ToolTipBase","GlobalColor","darkColor" ) ;
+	obj.insert( "QPalette::ToolTipText","Qt::GlobalColor","Qt::lightGray" ) ;
+	obj.insert( "QPalette::Text","Qt::GlobalColor","Qt::lightGray" ) ;
+	obj.insert( "QPalette::Disabled,QPalette::Text","GlobalColor","disabledColor" ) ;
+	obj.insert( "QPalette::Button","GlobalColor","darkColor" ) ;
+	obj.insert( "QPalette::ButtonText","Qt::GlobalColor","Qt::lightGray" ) ;
+	obj.insert( "QPalette::Disabled,QPalette::ButtonText","GlobalColor","disabledColor" ) ;
+	obj.insert( "QPalette::BrightText","Qt::GlobalColor","Qt::yellow" ) ;
+	obj.insert( "QPalette::HighlightedText","Qt::GlobalColor","Qt::black" ) ;
+	obj.insert( "QPalette::Disabled,QPalette::HighlightedText","GlobalColor","disabledColor" ) ;
 
 	obj.insert( "QToolTipStyleSheet","QToolTip { color: #ffffff; background-color: #2a82da; border: 1px solid white; }" ) ;
 
 	return obj ;
 }
 
-QJsonObject themes::defaultTheme() const
+QJsonObject themes::defaultDarkTheme() const
 {
-	auto obj = _baseTheme() ;
+	auto obj = this->baseTheme() ;
 
-	obj.insert( "darkColor",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "rgba",[](){
-
-			QJsonArray arr ;
-
-			arr.append( 45 ) ;
-			arr.append( 45 ) ;
-			arr.append( 45 ) ;
-			arr.append( 255 ) ;
-
-			return arr ;
-		}() ) ;
-
-		return obj ;
-	}() ) ;
+	obj.insert( "darkColor",45,45,45,255 ) ;
 
 	return obj ;
 }
 
 QJsonObject themes::defaultPureDarkTheme() const
 {
-	auto obj = _baseTheme() ;
+	auto obj = this->baseTheme() ;
 
-	obj.insert( "darkColor",[](){
+	obj.insert( "darkColor",0,0,0,255 ) ;
 
-		QJsonObject obj ;
+	return obj ;
+}
 
-		obj.insert( "rgba",[](){
+QJsonObject themes::defaultLightTheme() const
+{
+	JObject obj ;
 
-			QJsonArray arr ;
+	obj.insert( "disabledColor",127,127,127,255 ) ;
+	obj.insert( "QPalette::Base",255,255,255,255 ) ;
+	obj.insert( "QPalette::Link",77,148,209,255 ) ;
+	obj.insert( "QPalette::Highlight",27,129,231,255 ) ;
 
-			arr.append( 0 ) ;
-			arr.append( 0 ) ;
-			arr.append( 0 ) ;
-			arr.append( 0 ) ;
+	obj.insert( "darkColor",230,230,230,255 ) ;
 
-			return arr ;
-		}() ) ;
+	obj.insert( "QPalette::WindowText","Qt::GlobalColor","Qt::black" ) ;
+	obj.insert( "QPalette::Window","GlobalColor","darkColor" ) ;
+	obj.insert( "QPalette::AlternateBase","GlobalColor","darkColor" ) ;
+	obj.insert( "QPalette::ToolTipBase","GlobalColor","darkColor" ) ;
+	obj.insert( "QPalette::ToolTipText","Qt::GlobalColor","Qt::black" ) ;
+	obj.insert( "QPalette::Text","Qt::GlobalColor","Qt::black" ) ;
+	obj.insert( "QPalette::Disabled,QPalette::Text","GlobalColor","disabledColor" ) ;
+	obj.insert( "QPalette::Button","GlobalColor","darkColor" ) ;
+	obj.insert( "QPalette::ButtonText","Qt::GlobalColor","Qt::black" ) ;
+	obj.insert( "QPalette::Disabled,QPalette::ButtonText","GlobalColor","disabledColor" ) ;
+	obj.insert( "QPalette::BrightText","Qt::GlobalColor","Qt::yellow" ) ;
+	obj.insert( "QPalette::HighlightedText","Qt::GlobalColor","Qt::black" ) ;
+	obj.insert( "QPalette::Disabled,QPalette::HighlightedText","GlobalColor","disabledColor" ) ;
 
-		return obj ;
-	}() ) ;
+	obj.insert( "QToolTipStyleSheet","QToolTip { color: #ffffff; background-color: #2a82da; border: 1px solid white; }" ) ;
 
 	return obj ;
 }
@@ -431,15 +253,15 @@ void themes::set( QApplication& app ) const
 		QDir().mkpath( m_themePath ) ;
 	}
 
-	auto defaultThemePath = this->defaultthemeFullPath() ;
+	auto defaultDarkThemePath = this->defaultDarkthemeFullPath() ;
 
-	if( !QFile::exists( defaultThemePath ) ){
+	if( !QFile::exists( defaultDarkThemePath ) ){
 
-		QFile f( defaultThemePath ) ;
+		QFile f( defaultDarkThemePath ) ;
 
 		if( f.open( QIODevice::WriteOnly ) ){
 
-			QJsonDocument doc( this->defaultTheme() ) ;
+			QJsonDocument doc( this->defaultDarkTheme() ) ;
 
 			f.write( doc.toJson( QJsonDocument::Indented ) ) ;
 		}
@@ -461,25 +283,36 @@ void themes::set( QApplication& app ) const
 
 	if( this->usingThemes() ){
 
-		QFile f( this->themeFullPath() ) ;
-
-		if( !f.open( QIODevice::ReadOnly ) ){
+		if( m_theme == "Light" ){
 
 			this->setDefaultTheme( app ) ;
 		}else{
-			auto obj = QJsonDocument::fromJson( f.readAll() ).object() ;
+			auto s = this->themeFullPath() ;
 
-			if( obj.isEmpty() ){
+			QFile f( s ) ;
+
+			if( !f.open( QIODevice::ReadOnly ) ){
 
 				this->setDefaultTheme( app ) ;
 			}else{
-				this->setTheme( app,obj ) ;
+				auto obj = QJsonDocument::fromJson( f.readAll() ).object() ;
+
+				if( obj.isEmpty() ){
+
+					this->setDefaultTheme( app ) ;
+				}else{
+					this->setTheme( app,obj ) ;
+				}
 			}
 		}
 	}
 }
 
-static QColor _qtColor( const QString& aa )
+namespace Themes
+{
+namespace local
+{
+static QColor qtColor( const QString& aa )
 {
 	if( aa == "Qt::color0" ){
 
@@ -565,7 +398,7 @@ static QColor _qtColor( const QString& aa )
 	}
 }
 
-static QColor _getRGBA( const QJsonArray& aa )
+static QColor getRGBA( const QJsonArray& aa )
 {
 	if( aa.size() == 3 ){
 
@@ -588,6 +421,9 @@ static QColor _getRGBA( const QJsonArray& aa )
 	}
 }
 
+}
+}
+
 QColor themes::getColor( const QString& e,const QJsonObject& obj ) const
 {
 	auto oo = obj.value( e ).toObject() ;
@@ -596,7 +432,7 @@ QColor themes::getColor( const QString& e,const QJsonObject& obj ) const
 
 	if( !a.isUndefined() ){
 
-		return _getRGBA( a.toArray() ) ;
+		return Themes::local::getRGBA( a.toArray() ) ;
 	}
 
 	a = oo.value( "GlobalColor" ) ;
@@ -619,10 +455,10 @@ QColor themes::getColor( const QString& e,const QJsonObject& obj ) const
 
 					return {} ;
 				}else{
-					return _qtColor( mmm.toString() ) ;
+					return Themes::local::qtColor( mmm.toString() ) ;
 				}
 			}else{
-				return _getRGBA( mm.toArray() ) ;
+				return Themes::local::getRGBA( mm.toArray() ) ;
 			}
 		}else{
 			return {} ;
@@ -635,7 +471,7 @@ QColor themes::getColor( const QString& e,const QJsonObject& obj ) const
 
 		return {} ;
 	}else{
-		return _qtColor( a.toString() ) ;
+		return Themes::local::qtColor( a.toString() ) ;
 	}
 }
 

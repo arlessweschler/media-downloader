@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>823</width>
-    <height>526</height>
+    <height>534</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -20,11 +20,11 @@
       <x>10</x>
       <y>10</y>
       <width>801</width>
-      <height>511</height>
+      <height>521</height>
      </rect>
     </property>
     <property name="currentIndex">
-     <number>1</number>
+     <number>2</number>
     </property>
     <widget class="QWidget" name="tabBasickDownloader">
      <attribute name="title">
@@ -44,7 +44,7 @@
       <property name="geometry">
        <rect>
         <x>60</x>
-        <y>440</y>
+        <y>450</y>
         <width>121</width>
         <height>33</height>
        </rect>
@@ -57,7 +57,7 @@
       <property name="geometry">
        <rect>
         <x>300</x>
-        <y>440</y>
+        <y>450</y>
         <width>201</width>
         <height>33</height>
        </rect>
@@ -69,9 +69,9 @@
      <widget class="QLabel" name="label">
       <property name="geometry">
        <rect>
-        <x>0</x>
-        <y>320</y>
-        <width>141</width>
+        <x>10</x>
+        <y>330</y>
+        <width>131</width>
         <height>31</height>
        </rect>
       </property>
@@ -79,7 +79,7 @@
        <string>Enter URL:</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -88,9 +88,9 @@
      <widget class="QLabel" name="label_2">
       <property name="geometry">
        <rect>
-        <x>0</x>
-        <y>360</y>
-        <width>141</width>
+        <x>10</x>
+        <y>370</y>
+        <width>131</width>
         <height>31</height>
        </rect>
       </property>
@@ -98,7 +98,7 @@
        <string>Download Options:</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -108,7 +108,7 @@
       <property name="geometry">
        <rect>
         <x>180</x>
-        <y>440</y>
+        <y>450</y>
         <width>121</width>
         <height>33</height>
        </rect>
@@ -121,7 +121,7 @@
       <property name="geometry">
        <rect>
         <x>150</x>
-        <y>320</y>
+        <y>330</y>
         <width>501</width>
         <height>31</height>
        </rect>
@@ -131,7 +131,7 @@
       <property name="geometry">
        <rect>
         <x>150</x>
-        <y>360</y>
+        <y>370</y>
         <width>501</width>
         <height>31</height>
        </rect>
@@ -141,7 +141,7 @@
       <property name="geometry">
        <rect>
         <x>500</x>
-        <y>440</y>
+        <y>450</y>
         <width>121</width>
         <height>33</height>
        </rect>
@@ -154,7 +154,7 @@
       <property name="geometry">
        <rect>
         <x>620</x>
-        <y>440</y>
+        <y>450</y>
         <width>121</width>
         <height>33</height>
        </rect>
@@ -167,7 +167,7 @@
       <property name="geometry">
        <rect>
         <x>150</x>
-        <y>400</y>
+        <y>410</y>
         <width>501</width>
         <height>31</height>
        </rect>
@@ -182,11 +182,11 @@
         <x>10</x>
         <y>0</y>
         <width>781</width>
-        <height>311</height>
+        <height>321</height>
        </rect>
       </property>
       <property name="editTriggers">
-       <set>QAbstractItemView::NoEditTriggers</set>
+       <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
       </property>
       <property name="tabKeyNavigation">
        <bool>false</bool>
@@ -195,7 +195,7 @@
        <bool>false</bool>
       </property>
       <property name="selectionBehavior">
-       <enum>QAbstractItemView::SelectRows</enum>
+       <enum>QAbstractItemView::SelectionBehavior::SelectRows</enum>
       </property>
       <column>
        <property name="text">
@@ -214,6 +214,11 @@
       </column>
       <column>
        <property name="text">
+        <string>File Size</string>
+       </property>
+      </column>
+      <column>
+       <property name="text">
         <string>Note</string>
        </property>
       </column>
@@ -221,9 +226,9 @@
      <widget class="QLabel" name="labelEngineName">
       <property name="geometry">
        <rect>
-        <x>0</x>
-        <y>400</y>
-        <width>141</width>
+        <x>10</x>
+        <y>410</y>
+        <width>131</width>
         <height>31</height>
        </rect>
       </property>
@@ -231,7 +236,7 @@
        <string>Engine Name:</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -241,7 +246,7 @@
       <property name="geometry">
        <rect>
         <x>660</x>
-        <y>320</y>
+        <y>330</y>
         <width>31</width>
         <height>31</height>
        </rect>
@@ -257,7 +262,7 @@
       <property name="geometry">
        <rect>
         <x>660</x>
-        <y>360</y>
+        <y>370</y>
         <width>31</width>
         <height>31</height>
        </rect>
@@ -273,13 +278,29 @@
       <property name="geometry">
        <rect>
         <x>700</x>
-        <y>360</y>
+        <y>370</y>
         <width>31</width>
         <height>31</height>
        </rect>
       </property>
       <property name="toolTip">
        <string>Set Download Options</string>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="pbBasicDownloaderPlay">
+      <property name="geometry">
+       <rect>
+        <x>700</x>
+        <y>330</y>
+        <width>31</width>
+        <height>33</height>
+       </rect>
+      </property>
+      <property name="toolTip">
+       <string>Play Downloaded Media</string>
       </property>
       <property name="text">
        <string/>
@@ -294,7 +315,7 @@
       <property name="geometry">
        <rect>
         <x>20</x>
-        <y>400</y>
+        <y>410</y>
         <width>141</width>
         <height>31</height>
        </rect>
@@ -303,7 +324,7 @@
        <string>Engine Name:</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -313,7 +334,7 @@
       <property name="geometry">
        <rect>
         <x>20</x>
-        <y>360</y>
+        <y>370</y>
         <width>141</width>
         <height>31</height>
        </rect>
@@ -322,7 +343,7 @@
        <string>Download Options:</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -334,18 +355,24 @@
         <x>10</x>
         <y>0</y>
         <width>771</width>
-        <height>311</height>
+        <height>321</height>
        </rect>
       </property>
       <property name="editTriggers">
-       <set>QAbstractItemView::NoEditTriggers</set>
+       <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
       </property>
       <property name="selectionMode">
-       <enum>QAbstractItemView::NoSelection</enum>
+       <enum>QAbstractItemView::SelectionMode::NoSelection</enum>
       </property>
       <property name="showGrid">
        <bool>false</bool>
       </property>
+      <attribute name="verticalHeaderMinimumSectionSize">
+       <number>72</number>
+      </attribute>
+      <attribute name="verticalHeaderDefaultSectionSize">
+       <number>72</number>
+      </attribute>
       <column>
        <property name="text">
         <string>Thumbnail</string>
@@ -361,7 +388,7 @@
       <property name="geometry">
        <rect>
         <x>170</x>
-        <y>320</y>
+        <y>330</y>
         <width>461</width>
         <height>31</height>
        </rect>
@@ -371,7 +398,7 @@
       <property name="geometry">
        <rect>
         <x>20</x>
-        <y>320</y>
+        <y>330</y>
         <width>141</width>
         <height>31</height>
        </rect>
@@ -380,7 +407,7 @@
        <string>Enter URL:</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -390,7 +417,7 @@
       <property name="geometry">
        <rect>
         <x>640</x>
-        <y>320</y>
+        <y>330</y>
         <width>31</width>
         <height>31</height>
        </rect>
@@ -406,7 +433,7 @@
       <property name="geometry">
        <rect>
         <x>680</x>
-        <y>320</y>
+        <y>330</y>
         <width>101</width>
         <height>31</height>
        </rect>
@@ -422,7 +449,7 @@
       <property name="geometry">
        <rect>
         <x>170</x>
-        <y>400</y>
+        <y>410</y>
         <width>461</width>
         <height>31</height>
        </rect>
@@ -435,7 +462,7 @@
       <property name="geometry">
        <rect>
         <x>170</x>
-        <y>360</y>
+        <y>370</y>
         <width>461</width>
         <height>31</height>
        </rect>
@@ -445,7 +472,7 @@
       <property name="geometry">
        <rect>
         <x>640</x>
-        <y>360</y>
+        <y>370</y>
         <width>31</width>
         <height>31</height>
        </rect>
@@ -461,7 +488,7 @@
       <property name="geometry">
        <rect>
         <x>680</x>
-        <y>360</y>
+        <y>370</y>
         <width>31</width>
         <height>31</height>
        </rect>
@@ -477,7 +504,7 @@
       <property name="geometry">
        <rect>
         <x>170</x>
-        <y>440</y>
+        <y>450</y>
         <width>121</width>
         <height>33</height>
        </rect>
@@ -490,7 +517,7 @@
       <property name="geometry">
        <rect>
         <x>510</x>
-        <y>440</y>
+        <y>450</y>
         <width>121</width>
         <height>33</height>
        </rect>
@@ -503,7 +530,7 @@
       <property name="geometry">
        <rect>
         <x>50</x>
-        <y>440</y>
+        <y>450</y>
         <width>121</width>
         <height>33</height>
        </rect>
@@ -516,7 +543,7 @@
       <property name="geometry">
        <rect>
         <x>290</x>
-        <y>440</y>
+        <y>450</y>
         <width>221</width>
         <height>33</height>
        </rect>
@@ -529,7 +556,7 @@
       <property name="geometry">
        <rect>
         <x>630</x>
-        <y>440</y>
+        <y>450</y>
         <width>121</width>
         <height>33</height>
        </rect>
@@ -551,10 +578,10 @@
        <bool>true</bool>
       </property>
       <property name="frameShape">
-       <enum>QFrame::StyledPanel</enum>
+       <enum>QFrame::Shape::StyledPanel</enum>
       </property>
       <property name="frameShadow">
-       <enum>QFrame::Raised</enum>
+       <enum>QFrame::Shadow::Raised</enum>
       </property>
       <widget class="QTableWidget" name="TableWidgetBatchDownloaderList">
        <property name="geometry">
@@ -566,7 +593,7 @@
         </rect>
        </property>
        <property name="editTriggers">
-        <set>QAbstractItemView::NoEditTriggers</set>
+        <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
        </property>
        <property name="tabKeyNavigation">
         <bool>false</bool>
@@ -575,8 +602,14 @@
         <bool>false</bool>
        </property>
        <property name="selectionBehavior">
-        <enum>QAbstractItemView::SelectRows</enum>
+        <enum>QAbstractItemView::SelectionBehavior::SelectRows</enum>
        </property>
+       <attribute name="verticalHeaderMinimumSectionSize">
+        <number>72</number>
+       </attribute>
+       <attribute name="verticalHeaderDefaultSectionSize">
+        <number>72</number>
+       </attribute>
        <column>
         <property name="text">
          <string notr="true">Format Code</string>
@@ -590,6 +623,11 @@
        <column>
         <property name="text">
          <string notr="true">Resolution</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>File Size</string>
         </property>
        </column>
        <column>
@@ -625,13 +663,13 @@
        </property>
       </widget>
      </widget>
-     <widget class="QLabel" name="labelSetTimeIntervals">
+     <widget class="QLabel" name="labelWidgetOverMainTable">
       <property name="geometry">
        <rect>
         <x>100</x>
-        <y>116</y>
+        <y>56</y>
         <width>591</width>
-        <height>241</height>
+        <height>221</height>
        </rect>
       </property>
       <property name="autoFillBackground">
@@ -645,7 +683,7 @@
       <property name="geometry">
        <rect>
         <x>400</x>
-        <y>200</y>
+        <y>130</y>
         <width>131</width>
         <height>31</height>
        </rect>
@@ -655,7 +693,7 @@
       <property name="geometry">
        <rect>
         <x>400</x>
-        <y>160</y>
+        <y>90</y>
         <width>131</width>
         <height>31</height>
        </rect>
@@ -665,7 +703,7 @@
       <property name="geometry">
        <rect>
         <x>110</x>
-        <y>160</y>
+        <y>90</y>
         <width>281</width>
         <height>31</height>
        </rect>
@@ -674,7 +712,7 @@
        <string>Time Interval Start Time(HH:MM:SS):</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -684,20 +722,20 @@
       <property name="geometry">
        <rect>
         <x>400</x>
-        <y>310</y>
+        <y>232</y>
         <width>131</width>
-        <height>33</height>
+        <height>31</height>
        </rect>
       </property>
       <property name="text">
-       <string>Set</string>
+       <string>Rename</string>
       </property>
      </widget>
      <widget class="QLabel" name="label_9">
       <property name="geometry">
        <rect>
         <x>110</x>
-        <y>200</y>
+        <y>130</y>
         <width>281</width>
         <height>31</height>
        </rect>
@@ -706,7 +744,7 @@
        <string>Time Interval End Time(HH:MM:SS):</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -716,9 +754,9 @@
       <property name="geometry">
        <rect>
         <x>260</x>
-        <y>310</y>
+        <y>232</y>
         <width>131</width>
-        <height>33</height>
+        <height>31</height>
        </rect>
       </property>
       <property name="text">
@@ -729,7 +767,7 @@
       <property name="geometry">
        <rect>
         <x>400</x>
-        <y>240</y>
+        <y>170</y>
         <width>131</width>
         <height>31</height>
        </rect>
@@ -739,7 +777,7 @@
       <property name="geometry">
        <rect>
         <x>112</x>
-        <y>240</y>
+        <y>170</y>
         <width>281</width>
         <height>31</height>
        </rect>
@@ -748,7 +786,7 @@
        <string>Chapters(Comma Separated):</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -758,13 +796,42 @@
       <property name="geometry">
        <rect>
         <x>400</x>
-        <y>270</y>
+        <y>200</y>
         <width>281</width>
-        <height>41</height>
+        <height>31</height>
        </rect>
       </property>
       <property name="text">
        <string>Split By Chapters</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="labelBDSetNewFileName">
+      <property name="geometry">
+       <rect>
+        <x>120</x>
+        <y>110</y>
+        <width>561</width>
+        <height>41</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Rename File To Below Text</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignmentFlag::AlignCenter</set>
+      </property>
+     </widget>
+     <widget class="QPlainTextEdit" name="plainTextEditBD">
+      <property name="geometry">
+       <rect>
+        <x>110</x>
+        <y>160</y>
+        <width>571</width>
+        <height>61</height>
+       </rect>
+      </property>
+      <property name="placeholderText">
+       <string notr="true"/>
       </property>
      </widget>
     </widget>
@@ -776,7 +843,7 @@
       <property name="geometry">
        <rect>
         <x>400</x>
-        <y>440</y>
+        <y>450</y>
         <width>121</width>
         <height>33</height>
        </rect>
@@ -789,7 +856,7 @@
       <property name="geometry">
        <rect>
         <x>520</x>
-        <y>440</y>
+        <y>450</y>
         <width>121</width>
         <height>33</height>
        </rect>
@@ -802,7 +869,7 @@
       <property name="geometry">
        <rect>
         <x>30</x>
-        <y>320</y>
+        <y>330</y>
         <width>141</width>
         <height>31</height>
        </rect>
@@ -811,7 +878,7 @@
        <string>Get List Options:</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -821,7 +888,7 @@
       <property name="geometry">
        <rect>
         <x>160</x>
-        <y>440</y>
+        <y>450</y>
         <width>121</width>
         <height>33</height>
        </rect>
@@ -834,7 +901,7 @@
       <property name="geometry">
        <rect>
         <x>180</x>
-        <y>320</y>
+        <y>330</y>
         <width>431</width>
         <height>31</height>
        </rect>
@@ -844,7 +911,7 @@
       <property name="geometry">
        <rect>
         <x>30</x>
-        <y>360</y>
+        <y>370</y>
         <width>141</width>
         <height>31</height>
        </rect>
@@ -853,7 +920,7 @@
        <string>Download Options:</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -863,7 +930,7 @@
       <property name="geometry">
        <rect>
         <x>180</x>
-        <y>360</y>
+        <y>370</y>
         <width>431</width>
         <height>31</height>
        </rect>
@@ -873,7 +940,7 @@
       <property name="geometry">
        <rect>
         <x>640</x>
-        <y>440</y>
+        <y>450</y>
         <width>121</width>
         <height>33</height>
        </rect>
@@ -886,7 +953,7 @@
       <property name="geometry">
        <rect>
         <x>30</x>
-        <y>280</y>
+        <y>290</y>
         <width>141</width>
         <height>31</height>
        </rect>
@@ -895,7 +962,7 @@
        <string>Enter Playlist URL:</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -905,10 +972,13 @@
       <property name="geometry">
        <rect>
         <x>180</x>
-        <y>280</y>
+        <y>290</y>
         <width>431</width>
         <height>31</height>
        </rect>
+      </property>
+      <property name="toolTip">
+       <string>Enter Playlist Url. To Add Multiple Playlists, Separate Them With A Space Or New Line</string>
       </property>
      </widget>
      <widget class="QTableWidget" name="tableWidgetPl">
@@ -917,12 +987,18 @@
         <x>10</x>
         <y>0</y>
         <width>771</width>
-        <height>271</height>
+        <height>281</height>
        </rect>
       </property>
       <property name="showGrid">
        <bool>false</bool>
       </property>
+      <attribute name="verticalHeaderMinimumSectionSize">
+       <number>72</number>
+      </attribute>
+      <attribute name="verticalHeaderDefaultSectionSize">
+       <number>72</number>
+      </attribute>
       <column>
        <property name="text">
         <string>Thumbnail</string>
@@ -938,7 +1014,7 @@
       <property name="geometry">
        <rect>
         <x>280</x>
-        <y>440</y>
+        <y>450</y>
         <width>121</width>
         <height>33</height>
        </rect>
@@ -951,7 +1027,7 @@
       <property name="geometry">
        <rect>
         <x>40</x>
-        <y>440</y>
+        <y>450</y>
         <width>121</width>
         <height>33</height>
        </rect>
@@ -964,7 +1040,7 @@
       <property name="geometry">
        <rect>
         <x>180</x>
-        <y>400</y>
+        <y>410</y>
         <width>431</width>
         <height>31</height>
        </rect>
@@ -976,9 +1052,9 @@
      <widget class="QLabel" name="labelPLEngineName">
       <property name="geometry">
        <rect>
-        <x>0</x>
-        <y>400</y>
-        <width>171</width>
+        <x>30</x>
+        <y>410</y>
+        <width>141</width>
         <height>31</height>
        </rect>
       </property>
@@ -986,7 +1062,7 @@
        <string>Engine Name:</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -996,7 +1072,7 @@
       <property name="geometry">
        <rect>
         <x>660</x>
-        <y>320</y>
+        <y>330</y>
         <width>31</width>
         <height>33</height>
        </rect>
@@ -1008,27 +1084,11 @@
        <string/>
       </property>
      </widget>
-     <widget class="QCheckBox" name="cbUseInternalArchiveFile">
-      <property name="geometry">
-       <rect>
-        <x>700</x>
-        <y>320</y>
-        <width>21</width>
-        <height>31</height>
-       </rect>
-      </property>
-      <property name="toolTip">
-       <string>Use Internal Archive File</string>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-     </widget>
      <widget class="QPushButton" name="pbPLPasteClipboard">
       <property name="geometry">
        <rect>
         <x>620</x>
-        <y>280</y>
+        <y>290</y>
         <width>31</width>
         <height>33</height>
        </rect>
@@ -1044,7 +1104,7 @@
       <property name="geometry">
        <rect>
         <x>620</x>
-        <y>320</y>
+        <y>330</y>
         <width>31</width>
         <height>31</height>
        </rect>
@@ -1060,7 +1120,7 @@
       <property name="geometry">
        <rect>
         <x>620</x>
-        <y>360</y>
+        <y>370</y>
         <width>31</width>
         <height>31</height>
        </rect>
@@ -1076,7 +1136,7 @@
       <property name="geometry">
        <rect>
         <x>660</x>
-        <y>360</y>
+        <y>370</y>
         <width>31</width>
         <height>31</height>
        </rect>
@@ -1092,7 +1152,7 @@
       <property name="geometry">
        <rect>
         <x>660</x>
-        <y>280</y>
+        <y>290</y>
         <width>31</width>
         <height>33</height>
        </rect>
@@ -1120,7 +1180,7 @@
        <property name="geometry">
         <rect>
          <x>0</x>
-         <y>310</y>
+         <y>320</y>
          <width>151</width>
          <height>31</height>
         </rect>
@@ -1129,7 +1189,7 @@
         <string>Ui Name</string>
        </property>
        <property name="alignment">
-        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
        </property>
        <property name="wordWrap">
         <bool>true</bool>
@@ -1139,7 +1199,7 @@
        <property name="geometry">
         <rect>
          <x>160</x>
-         <y>350</y>
+         <y>360</y>
          <width>461</width>
          <height>31</height>
         </rect>
@@ -1149,7 +1209,7 @@
        <property name="geometry">
         <rect>
          <x>160</x>
-         <y>310</y>
+         <y>320</y>
          <width>461</width>
          <height>31</height>
         </rect>
@@ -1161,11 +1221,11 @@
          <x>0</x>
          <y>10</y>
          <width>771</width>
-         <height>261</height>
+         <height>301</height>
         </rect>
        </property>
        <property name="editTriggers">
-        <set>QAbstractItemView::NoEditTriggers</set>
+        <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
        </property>
        <property name="tabKeyNavigation">
         <bool>false</bool>
@@ -1174,14 +1234,17 @@
         <bool>false</bool>
        </property>
        <property name="selectionMode">
-        <enum>QAbstractItemView::NoSelection</enum>
+        <enum>QAbstractItemView::SelectionMode::NoSelection</enum>
        </property>
        <property name="selectionBehavior">
-        <enum>QAbstractItemView::SelectItems</enum>
+        <enum>QAbstractItemView::SelectionBehavior::SelectItems</enum>
        </property>
        <property name="gridStyle">
-        <enum>Qt::SolidLine</enum>
+        <enum>Qt::PenStyle::SolidLine</enum>
        </property>
+       <attribute name="verticalHeaderDefaultSectionSize">
+        <number>30</number>
+       </attribute>
        <column>
         <property name="text">
          <string>Ui Name</string>
@@ -1197,8 +1260,8 @@
        <property name="geometry">
         <rect>
          <x>390</x>
-         <y>430</y>
-         <width>181</width>
+         <y>440</y>
+         <width>231</width>
          <height>31</height>
         </rect>
        </property>
@@ -1213,7 +1276,7 @@
        <property name="geometry">
         <rect>
          <x>0</x>
-         <y>350</y>
+         <y>360</y>
          <width>151</width>
          <height>31</height>
         </rect>
@@ -1222,7 +1285,7 @@
         <string>Url</string>
        </property>
        <property name="alignment">
-        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
        </property>
        <property name="wordWrap">
         <bool>true</bool>
@@ -1231,9 +1294,9 @@
       <widget class="QPushButton" name="pbPlSubscriptionDone">
        <property name="geometry">
         <rect>
-         <x>210</x>
-         <y>430</y>
-         <width>181</width>
+         <x>160</x>
+         <y>440</y>
+         <width>231</width>
          <height>31</height>
         </rect>
        </property>
@@ -1248,7 +1311,7 @@
        <property name="geometry">
         <rect>
          <x>160</x>
-         <y>390</y>
+         <y>400</y>
          <width>461</width>
          <height>31</height>
         </rect>
@@ -1258,7 +1321,7 @@
        <property name="geometry">
         <rect>
          <x>0</x>
-         <y>390</y>
+         <y>400</y>
          <width>151</width>
          <height>31</height>
         </rect>
@@ -1267,7 +1330,7 @@
         <string>Get List Options:</string>
        </property>
        <property name="alignment">
-        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
        </property>
        <property name="wordWrap">
         <bool>true</bool>
@@ -1285,11 +1348,11 @@
         <x>10</x>
         <y>10</y>
         <width>771</width>
-        <height>381</height>
+        <height>431</height>
        </rect>
       </property>
       <property name="editTriggers">
-       <set>QAbstractItemView::NoEditTriggers</set>
+       <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
       </property>
       <property name="tabKeyNavigation">
        <bool>false</bool>
@@ -1298,13 +1361,13 @@
        <bool>false</bool>
       </property>
       <property name="selectionMode">
-       <enum>QAbstractItemView::NoSelection</enum>
+       <enum>QAbstractItemView::SelectionMode::NoSelection</enum>
       </property>
       <property name="selectionBehavior">
-       <enum>QAbstractItemView::SelectItems</enum>
+       <enum>QAbstractItemView::SelectionBehavior::SelectItems</enum>
       </property>
       <property name="gridStyle">
-       <enum>Qt::SolidLine</enum>
+       <enum>Qt::PenStyle::SolidLine</enum>
       </property>
       <column>
        <property name="text">
@@ -1321,7 +1384,7 @@
       <property name="geometry">
        <rect>
         <x>630</x>
-        <y>440</y>
+        <y>450</y>
         <width>111</width>
         <height>33</height>
        </rect>
@@ -1334,7 +1397,7 @@
       <property name="geometry">
        <rect>
         <x>170</x>
-        <y>440</y>
+        <y>450</y>
         <width>111</width>
         <height>33</height>
        </rect>
@@ -1347,7 +1410,7 @@
       <property name="geometry">
        <rect>
         <x>520</x>
-        <y>440</y>
+        <y>450</y>
         <width>111</width>
         <height>33</height>
        </rect>
@@ -1360,7 +1423,7 @@
       <property name="geometry">
        <rect>
         <x>280</x>
-        <y>440</y>
+        <y>450</y>
         <width>121</width>
         <height>33</height>
        </rect>
@@ -1373,7 +1436,7 @@
       <property name="geometry">
        <rect>
         <x>60</x>
-        <y>440</y>
+        <y>450</y>
         <width>111</width>
         <height>33</height>
        </rect>
@@ -1382,46 +1445,88 @@
        <string>Home</string>
       </property>
      </widget>
-     <widget class="QCheckBox" name="cbLibraryTabEnable">
-      <property name="geometry">
-       <rect>
-        <x>60</x>
-        <y>390</y>
-        <width>21</width>
-        <height>51</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-     </widget>
-     <widget class="QLabel" name="labelLibraryWarning">
-      <property name="geometry">
-       <rect>
-        <x>90</x>
-        <y>386</y>
-        <width>651</width>
-        <height>51</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Enable Library Tab(May Cause The UI To Freeze For A Very Long TIme If Download Folder Has Too Many Entries)</string>
-      </property>
-      <property name="wordWrap">
-       <bool>true</bool>
-      </property>
-     </widget>
      <widget class="QPushButton" name="pbLibraryCancel">
       <property name="geometry">
        <rect>
         <x>400</x>
-        <y>440</y>
+        <y>450</y>
         <width>121</width>
         <height>33</height>
        </rect>
       </property>
       <property name="text">
        <string>Cancel</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="labelLibraryWidgetOverMainTable">
+      <property name="geometry">
+       <rect>
+        <x>110</x>
+        <y>126</y>
+        <width>571</width>
+        <height>201</height>
+       </rect>
+      </property>
+      <property name="autoFillBackground">
+       <bool>true</bool>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+     </widget>
+     <widget class="QPlainTextEdit" name="plainTextLibrarySetNewName">
+      <property name="geometry">
+       <rect>
+        <x>120</x>
+        <y>190</y>
+        <width>551</width>
+        <height>71</height>
+       </rect>
+      </property>
+      <property name="placeholderText">
+       <string notr="true"/>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="pbLibrarySetNewFileName">
+      <property name="geometry">
+       <rect>
+        <x>410</x>
+        <y>282</y>
+        <width>131</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Rename</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="pbLibraryCancelRename">
+      <property name="geometry">
+       <rect>
+        <x>270</x>
+        <y>282</y>
+        <width>131</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Cancel</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="labelLibrarySetNewFileName">
+      <property name="geometry">
+       <rect>
+        <x>120</x>
+        <y>140</y>
+        <width>551</width>
+        <height>41</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Rename File To Below Text</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignmentFlag::AlignCenter</set>
       </property>
      </widget>
     </widget>
@@ -1449,7 +1554,7 @@
         <property name="geometry">
          <rect>
           <x>188</x>
-          <y>88</y>
+          <y>50</y>
           <width>421</width>
           <height>31</height>
          </rect>
@@ -1458,11 +1563,14 @@
        <widget class="QPushButton" name="pbConfigureDownloadPath">
         <property name="geometry">
          <rect>
-          <x>618</x>
-          <y>88</y>
+          <x>620</x>
+          <y>50</y>
           <width>31</width>
           <height>31</height>
          </rect>
+        </property>
+        <property name="toolTip">
+         <string>A Button To Open A Folder To Be Used As A Download Folder</string>
         </property>
         <property name="text">
          <string/>
@@ -1481,7 +1589,7 @@
          <string>Select Language</string>
         </property>
         <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
         </property>
         <property name="wordWrap">
          <bool>true</bool>
@@ -1497,21 +1605,11 @@
          </rect>
         </property>
        </widget>
-       <widget class="QLineEdit" name="lineEditConfigureScaleFactor">
-        <property name="geometry">
-         <rect>
-          <x>188</x>
-          <y>50</y>
-          <width>421</width>
-          <height>31</height>
-         </rect>
-        </property>
-       </widget>
        <widget class="QLabel" name="labelConfigureDownloadPath">
         <property name="geometry">
          <rect>
-          <x>8</x>
-          <y>90</y>
+          <x>10</x>
+          <y>52</y>
           <width>171</width>
           <height>31</height>
          </rect>
@@ -1520,87 +1618,29 @@
          <string>Download Path</string>
         </property>
         <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
         </property>
         <property name="wordWrap">
          <bool>true</bool>
-        </property>
-       </widget>
-       <widget class="QPushButton" name="pbConfigureDownload">
-        <property name="geometry">
-         <rect>
-          <x>480</x>
-          <y>170</y>
-          <width>131</width>
-          <height>31</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Update Plugin</string>
-        </property>
-       </widget>
-       <widget class="QPushButton" name="pbConfigureRemoveAPlugin">
-        <property name="geometry">
-         <rect>
-          <x>330</x>
-          <y>170</y>
-          <width>141</width>
-          <height>31</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Remove A Plugin</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="labelConfigureScaleFactor">
-        <property name="geometry">
-         <rect>
-          <x>8</x>
-          <y>50</y>
-          <width>171</width>
-          <height>31</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Scale Factor(Need A Restart)</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-        </property>
-        <property name="wordWrap">
-         <bool>true</bool>
-        </property>
-       </widget>
-       <widget class="QPushButton" name="pbConfigureAddAPlugin">
-        <property name="geometry">
-         <rect>
-          <x>190</x>
-          <y>170</y>
-          <width>131</width>
-          <height>31</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Add a Plugin</string>
         </property>
        </widget>
        <widget class="QCheckBox" name="cbConfigureShowMetaDataInBatchDownloader">
         <property name="geometry">
          <rect>
-          <x>190</x>
-          <y>240</y>
-          <width>561</width>
-          <height>31</height>
+          <x>188</x>
+          <y>250</y>
+          <width>571</width>
+          <height>21</height>
          </rect>
         </property>
         <property name="text">
-         <string>Show MetaData In Batch Downloader Tab</string>
+         <string>Show MetaData In Batch Downloader</string>
         </property>
        </widget>
        <widget class="QLineEdit" name="lineEditConfigureMaximuConcurrentDownloads">
         <property name="geometry">
          <rect>
-          <x>190</x>
+          <x>188</x>
           <y>370</y>
           <width>421</width>
           <height>31</height>
@@ -1620,7 +1660,7 @@
          <string>Maximum Concurrent Downloads</string>
         </property>
         <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
         </property>
         <property name="wordWrap">
          <bool>true</bool>
@@ -1630,7 +1670,7 @@
         <property name="geometry">
          <rect>
           <x>188</x>
-          <y>210</y>
+          <y>90</y>
           <width>421</width>
           <height>31</height>
          </rect>
@@ -1640,16 +1680,16 @@
         <property name="geometry">
          <rect>
           <x>8</x>
-          <y>210</y>
+          <y>90</y>
           <width>171</width>
           <height>31</height>
          </rect>
         </property>
         <property name="text">
-         <string>Dark Theme(Need A Restart)</string>
+         <string>Theme(Need A Restart)</string>
         </property>
         <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
         </property>
         <property name="wordWrap">
          <bool>true</bool>
@@ -1659,10 +1699,13 @@
         <property name="geometry">
          <rect>
           <x>620</x>
-          <y>210</y>
+          <y>90</y>
           <width>31</width>
           <height>31</height>
          </rect>
+        </property>
+        <property name="toolTip">
+         <string>A Button To Open A Folder Where Theme Config Files Are Stored</string>
         </property>
         <property name="text">
          <string/>
@@ -1671,10 +1714,10 @@
        <widget class="QCheckBox" name="cbShowTrayIcon">
         <property name="geometry">
          <rect>
-          <x>190</x>
-          <y>280</y>
-          <width>561</width>
-          <height>31</height>
+          <x>188</x>
+          <y>290</y>
+          <width>571</width>
+          <height>21</height>
          </rect>
         </property>
         <property name="text">
@@ -1684,65 +1727,23 @@
        <widget class="QCheckBox" name="cbAutoSaveNotDownloadedMedia">
         <property name="geometry">
          <rect>
-          <x>190</x>
-          <y>300</y>
-          <width>561</width>
-          <height>31</height>
+          <x>188</x>
+          <y>310</y>
+          <width>571</width>
+          <height>21</height>
          </rect>
         </property>
         <property name="text">
          <string>Auto Save List Of Not Downloaded Media</string>
         </property>
        </widget>
-       <widget class="QPushButton" name="pbOpenBinFolder">
-        <property name="geometry">
-         <rect>
-          <x>620</x>
-          <y>170</y>
-          <width>31</width>
-          <height>33</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-       </widget>
-       <widget class="QLineEdit" name="lineEditConfigureTextEncoding">
-        <property name="geometry">
-         <rect>
-          <x>190</x>
-          <y>130</y>
-          <width>421</width>
-          <height>31</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLabel" name="labelConfigureTextEncoding">
-        <property name="geometry">
-         <rect>
-          <x>10</x>
-          <y>130</y>
-          <width>171</width>
-          <height>31</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Text Encoding</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-        </property>
-        <property name="wordWrap">
-         <bool>true</bool>
-        </property>
-       </widget>
        <widget class="QCheckBox" name="cbAutoHideDownloadCompleted">
         <property name="geometry">
          <rect>
-          <x>190</x>
-          <y>260</y>
-          <width>561</width>
-          <height>31</height>
+          <x>188</x>
+          <y>270</y>
+          <width>571</width>
+          <height>21</height>
          </rect>
         </property>
         <property name="text">
@@ -1752,7 +1753,7 @@
        <widget class="QComboBox" name="comboBoxActionsWhenStarting">
         <property name="geometry">
          <rect>
-          <x>190</x>
+          <x>188</x>
           <y>330</y>
           <width>421</width>
           <height>32</height>
@@ -1792,181 +1793,107 @@
          <string>Actions At Startup</string>
         </property>
         <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
         </property>
         <property name="wordWrap">
          <bool>true</bool>
         </property>
        </widget>
-      </widget>
-      <widget class="QWidget" name="tabPresetOptions">
-       <attribute name="title">
-        <string>Preset Options</string>
-       </attribute>
-       <widget class="QPushButton" name="pbConfigureSetPresetDefaults">
+       <widget class="QCheckBox" name="cbconfigureAutoDownload">
         <property name="geometry">
          <rect>
-          <x>129</x>
-          <y>370</y>
-          <width>251</width>
-          <height>31</height>
-         </rect>
-        </property>
-        <property name="toolTip">
-         <string>Reset Option To Its Default</string>
-        </property>
-        <property name="text">
-         <string>Set Defaults</string>
-        </property>
-       </widget>
-       <widget class="QTableWidget" name="tableWidgetConfigurePresetOptions">
-        <property name="geometry">
-         <rect>
-          <x>10</x>
-          <y>10</y>
-          <width>741</width>
-          <height>231</height>
-         </rect>
-        </property>
-        <property name="editTriggers">
-         <set>QAbstractItemView::NoEditTriggers</set>
-        </property>
-        <property name="tabKeyNavigation">
-         <bool>false</bool>
-        </property>
-        <property name="showDropIndicator" stdset="0">
-         <bool>false</bool>
-        </property>
-        <property name="selectionMode">
-         <enum>QAbstractItemView::NoSelection</enum>
-        </property>
-        <property name="selectionBehavior">
-         <enum>QAbstractItemView::SelectItems</enum>
-        </property>
-        <property name="gridStyle">
-         <enum>Qt::SolidLine</enum>
-        </property>
-        <column>
-         <property name="text">
-          <string>Website</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>Ui Name</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>Options</string>
-         </property>
-        </column>
-       </widget>
-       <widget class="QLineEdit" name="lineEditConfigureUiName">
-        <property name="geometry">
-         <rect>
-          <x>130</x>
-          <y>290</y>
-          <width>501</width>
-          <height>31</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLineEdit" name="lineEditConfigurePresetOptions">
-        <property name="geometry">
-         <rect>
-          <x>130</x>
-          <y>330</y>
-          <width>501</width>
-          <height>31</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLabel" name="labelConfugureUiName">
-        <property name="geometry">
-         <rect>
-          <x>0</x>
-          <y>290</y>
-          <width>121</width>
-          <height>31</height>
+          <x>188</x>
+          <y>230</y>
+          <width>571</width>
+          <height>21</height>
          </rect>
         </property>
         <property name="text">
-         <string>Ui Name</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         <string>Auto Download Added Entries In Batch Downloader</string>
         </property>
        </widget>
-       <widget class="QLabel" name="labelConfigureOptionsPresetOptiions">
+       <widget class="QCheckBox" name="cbUseArchiveFile">
         <property name="geometry">
          <rect>
-          <x>0</x>
-          <y>330</y>
-          <width>121</width>
-          <height>31</height>
+          <x>188</x>
+          <y>210</y>
+          <width>571</width>
+          <height>21</height>
          </rect>
         </property>
         <property name="text">
-         <string>Options</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         <string>Use Internal Archive File</string>
         </property>
        </widget>
-       <widget class="QPushButton" name="pbConfigureAddToPresetList">
+       <widget class="QCheckBox" name="cbConfigureNotifyWhenDownloadComplete">
         <property name="geometry">
          <rect>
-          <x>380</x>
-          <y>370</y>
-          <width>251</width>
-          <height>31</height>
-         </rect>
-        </property>
-        <property name="toolTip">
-         <string/>
-        </property>
-        <property name="text">
-         <string>Add</string>
-        </property>
-       </widget>
-       <widget class="QLineEdit" name="lineEditConfigureWebsite">
-        <property name="geometry">
-         <rect>
-          <x>130</x>
-          <y>250</y>
-          <width>501</width>
-          <height>31</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLabel" name="labelConfugureWebSite">
-        <property name="geometry">
-         <rect>
-          <x>0</x>
-          <y>250</y>
-          <width>121</width>
-          <height>31</height>
+          <x>188</x>
+          <y>190</y>
+          <width>571</width>
+          <height>20</height>
          </rect>
         </property>
         <property name="text">
-         <string>Website</string>
+         <string>Notify When Download Completes</string>
         </property>
-        <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       </widget>
+       <widget class="QCheckBox" name="cbConfigureNotifyWhenAllDownloadCompltes">
+        <property name="geometry">
+         <rect>
+          <x>188</x>
+          <y>170</y>
+          <width>571</width>
+          <height>20</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Notify When All Downloads Complete</string>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="cbConfigureUseSystemSupportingEngine">
+        <property name="geometry">
+         <rect>
+          <x>188</x>
+          <y>150</y>
+          <width>571</width>
+          <height>22</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Use Deno From System If Available</string>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="cbConfigureUseSystemEngine">
+        <property name="geometry">
+         <rect>
+          <x>188</x>
+          <y>130</y>
+          <width>571</width>
+          <height>22</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Use Extension From System If Available</string>
         </property>
        </widget>
       </widget>
       <widget class="QWidget" name="EngineDefaultOptions">
        <attribute name="title">
-        <string>Engine's Default Options</string>
+        <string>Engine's Options</string>
        </attribute>
        <widget class="QComboBox" name="cbConfigureEngines">
         <property name="geometry">
          <rect>
-          <x>190</x>
-          <y>30</y>
-          <width>361</width>
+          <x>380</x>
+          <y>10</y>
+          <width>311</width>
           <height>31</height>
          </rect>
         </property>
@@ -1974,9 +1901,9 @@
        <widget class="QLabel" name="labelConfigureEngines">
         <property name="geometry">
          <rect>
-          <x>190</x>
-          <y>0</y>
-          <width>361</width>
+          <x>70</x>
+          <y>10</y>
+          <width>301</width>
           <height>31</height>
          </rect>
         </property>
@@ -1984,7 +1911,7 @@
          <string>Engine's Name</string>
         </property>
         <property name="alignment">
-         <set>Qt::AlignCenter</set>
+         <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
         </property>
         <property name="wordWrap">
          <bool>true</bool>
@@ -2006,40 +1933,30 @@
        <widget class="QLabel" name="labelPathToCookieFile">
         <property name="geometry">
          <rect>
-          <x>80</x>
-          <y>60</y>
-          <width>581</width>
+          <x>70</x>
+          <y>50</y>
+          <width>301</width>
           <height>31</height>
          </rect>
         </property>
         <property name="text">
-         <string>Path To Cookie FIle</string>
+         <string>Name Of Web Browser To Get Cookies From</string>
         </property>
         <property name="alignment">
-         <set>Qt::AlignCenter</set>
+         <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
         </property>
        </widget>
-       <widget class="QLineEdit" name="lineEditConfigureCookiePath">
+       <widget class="QLineEdit" name="lineEditConfigureCookieBrowserName">
         <property name="geometry">
          <rect>
-          <x>100</x>
-          <y>90</y>
-          <width>561</width>
+          <x>380</x>
+          <y>50</y>
+          <width>311</width>
           <height>31</height>
          </rect>
-        </property>
-       </widget>
-       <widget class="QPushButton" name="pbConfigureCookiePath">
-        <property name="geometry">
-         <rect>
-          <x>670</x>
-          <y>90</y>
-          <width>31</width>
-          <height>31</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string/>
         </property>
        </widget>
        <widget class="QTableWidget" name="tableWidgetEnginesDefaultOptions">
@@ -2085,7 +2002,7 @@
          </rect>
         </property>
        </widget>
-       <widget class="QLabel" name="label_6">
+       <widget class="QLabel" name="labelConfigureOptionsToAdd">
         <property name="geometry">
          <rect>
           <x>60</x>
@@ -2098,10 +2015,428 @@
          <string>Options To Add</string>
         </property>
         <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
         </property>
         <property name="wordWrap">
          <bool>true</bool>
+        </property>
+       </widget>
+       <widget class="QLabel" name="labelEditConfigOptions">
+        <property name="geometry">
+         <rect>
+          <x>60</x>
+          <y>130</y>
+          <width>641</width>
+          <height>231</height>
+         </rect>
+        </property>
+        <property name="autoFillBackground">
+         <bool>true</bool>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="pbConfigureSaveEditOption">
+        <property name="geometry">
+         <rect>
+          <x>200</x>
+          <y>320</y>
+          <width>181</width>
+          <height>31</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Save</string>
+        </property>
+       </widget>
+       <widget class="QTextEdit" name="textEditConfigureEditOption">
+        <property name="geometry">
+         <rect>
+          <x>70</x>
+          <y>130</y>
+          <width>621</width>
+          <height>181</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="pbConfigureSaveEditOptionCancel">
+        <property name="geometry">
+         <rect>
+          <x>380</x>
+          <y>320</y>
+          <width>181</width>
+          <height>31</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Cancel</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEditConfigureTextEncoding">
+        <property name="geometry">
+         <rect>
+          <x>380</x>
+          <y>90</y>
+          <width>311</width>
+          <height>31</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLabel" name="labelConfigureTextEncoding">
+        <property name="geometry">
+         <rect>
+          <x>70</x>
+          <y>90</y>
+          <width>301</width>
+          <height>31</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Text Encoding</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="cbCookieSource">
+        <property name="geometry">
+         <rect>
+          <x>740</x>
+          <y>50</y>
+          <width>21</width>
+          <height>31</height>
+         </rect>
+        </property>
+        <property name="toolTip">
+         <string>Switch Between Setting Browser Name And Path To Cookie File</string>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="pbConfigureSetPathToCookieFile">
+        <property name="geometry">
+         <rect>
+          <x>700</x>
+          <y>50</y>
+          <width>31</width>
+          <height>32</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="cbDenoEnableAutoDownload">
+        <property name="geometry">
+         <rect>
+          <x>380</x>
+          <y>91</y>
+          <width>311</width>
+          <height>31</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+      </widget>
+      <widget class="QWidget" name="tabPresetOptions">
+       <attribute name="title">
+        <string>Preset Options</string>
+       </attribute>
+       <widget class="QPushButton" name="pbConfigureSetPresetDefaults">
+        <property name="geometry">
+         <rect>
+          <x>129</x>
+          <y>370</y>
+          <width>251</width>
+          <height>31</height>
+         </rect>
+        </property>
+        <property name="toolTip">
+         <string>Reset Option To Its Default</string>
+        </property>
+        <property name="text">
+         <string>Set Defaults</string>
+        </property>
+       </widget>
+       <widget class="QTableWidget" name="tableWidgetConfigurePresetOptions">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>10</y>
+          <width>741</width>
+          <height>231</height>
+         </rect>
+        </property>
+        <property name="editTriggers">
+         <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
+        </property>
+        <property name="tabKeyNavigation">
+         <bool>false</bool>
+        </property>
+        <property name="showDropIndicator" stdset="0">
+         <bool>false</bool>
+        </property>
+        <property name="selectionMode">
+         <enum>QAbstractItemView::SelectionMode::NoSelection</enum>
+        </property>
+        <property name="selectionBehavior">
+         <enum>QAbstractItemView::SelectionBehavior::SelectItems</enum>
+        </property>
+        <property name="gridStyle">
+         <enum>Qt::PenStyle::SolidLine</enum>
+        </property>
+        <column>
+         <property name="text">
+          <string>Website</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Ui Name</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Options</string>
+         </property>
+        </column>
+       </widget>
+       <widget class="QLineEdit" name="lineEditConfigureUiName">
+        <property name="geometry">
+         <rect>
+          <x>130</x>
+          <y>290</y>
+          <width>501</width>
+          <height>31</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEditConfigurePresetOptions">
+        <property name="geometry">
+         <rect>
+          <x>130</x>
+          <y>330</y>
+          <width>501</width>
+          <height>31</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLabel" name="labelConfugureUiName">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>290</y>
+          <width>111</width>
+          <height>31</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Ui Name</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
+        </property>
+       </widget>
+       <widget class="QLabel" name="labelConfigureOptionsPresetOptiions">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>330</y>
+          <width>111</width>
+          <height>31</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Options</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="pbConfigureAddToPresetList">
+        <property name="geometry">
+         <rect>
+          <x>380</x>
+          <y>370</y>
+          <width>251</width>
+          <height>31</height>
+         </rect>
+        </property>
+        <property name="toolTip">
+         <string/>
+        </property>
+        <property name="text">
+         <string>Add</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEditConfigureWebsite">
+        <property name="geometry">
+         <rect>
+          <x>130</x>
+          <y>250</y>
+          <width>501</width>
+          <height>31</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLabel" name="labelConfugureWebSite">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>250</y>
+          <width>111</width>
+          <height>31</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Website</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
+        </property>
+       </widget>
+       <widget class="QLabel" name="labelBaseConfirmResetPreset">
+        <property name="geometry">
+         <rect>
+          <x>70</x>
+          <y>60</y>
+          <width>621</width>
+          <height>161</height>
+         </rect>
+        </property>
+        <property name="autoFillBackground">
+         <bool>true</bool>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+       <widget class="QLabel" name="labelBaseConfirmResetPresetText">
+        <property name="geometry">
+         <rect>
+          <x>110</x>
+          <y>70</y>
+          <width>541</width>
+          <height>71</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Are You Sure You Want To Reset These Options To Their Defaults?</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignCenter</set>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="pbConfigureConfirmResetNo">
+        <property name="geometry">
+         <rect>
+          <x>270</x>
+          <y>170</y>
+          <width>111</width>
+          <height>33</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>No</string>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="pbConfigureConfirmResetYes">
+        <property name="geometry">
+         <rect>
+          <x>380</x>
+          <y>170</y>
+          <width>111</width>
+          <height>33</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Yes</string>
+        </property>
+       </widget>
+      </widget>
+      <widget class="QWidget" name="tabWidgetConfigureExtensions">
+       <attribute name="title">
+        <string>Extensions</string>
+       </attribute>
+       <widget class="QPushButton" name="pbConfigureRemoveAPlugin">
+        <property name="geometry">
+         <rect>
+          <x>180</x>
+          <y>190</y>
+          <width>411</width>
+          <height>31</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Remove An Extension</string>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="pbConfigureUpdateExtensions">
+        <property name="geometry">
+         <rect>
+          <x>180</x>
+          <y>150</y>
+          <width>411</width>
+          <height>31</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Update An Extension</string>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="pbConfigureAddAPlugin">
+        <property name="geometry">
+         <rect>
+          <x>180</x>
+          <y>110</y>
+          <width>411</width>
+          <height>31</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Add An Extension</string>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="pbOpenBinFolder">
+        <property name="geometry">
+         <rect>
+          <x>180</x>
+          <y>230</y>
+          <width>411</width>
+          <height>33</height>
+         </rect>
+        </property>
+        <property name="toolTip">
+         <string>A Button To Open A Folder Where Extension's Binaries Are Stored</string>
+        </property>
+        <property name="text">
+         <string>Open Binary Folder</string>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="pbOpenExtensionFolder">
+        <property name="geometry">
+         <rect>
+          <x>180</x>
+          <y>270</y>
+          <width>411</width>
+          <height>33</height>
+         </rect>
+        </property>
+        <property name="toolTip">
+         <string>A Button To Open A Folder Where Extension's Binaries Are Stored</string>
+        </property>
+        <property name="text">
+         <string>Open Extension Folder</string>
         </property>
        </widget>
       </widget>
@@ -2134,7 +2469,7 @@
          <rect>
           <x>15</x>
           <y>0</y>
-          <width>741</width>
+          <width>731</width>
           <height>31</height>
          </rect>
         </property>
@@ -2142,7 +2477,7 @@
          <string>Set What Url Should Be Managed By What Engine</string>
         </property>
         <property name="alignment">
-         <set>Qt::AlignCenter</set>
+         <set>Qt::AlignmentFlag::AlignCenter</set>
         </property>
         <property name="wordWrap">
          <bool>true</bool>
@@ -2161,7 +2496,7 @@
          <string>Url Filter</string>
         </property>
         <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
         </property>
         <property name="wordWrap">
          <bool>true</bool>
@@ -2170,9 +2505,9 @@
        <widget class="QLabel" name="label_5">
         <property name="geometry">
          <rect>
-          <x>-20</x>
+          <x>10</x>
           <y>330</y>
-          <width>171</width>
+          <width>141</width>
           <height>31</height>
          </rect>
         </property>
@@ -2180,7 +2515,7 @@
          <string>Options</string>
         </property>
         <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
         </property>
         <property name="wordWrap">
          <bool>true</bool>
@@ -2242,7 +2577,7 @@
          <string>Engine's Name</string>
         </property>
         <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
         </property>
         <property name="wordWrap">
          <bool>true</bool>
@@ -2304,7 +2639,7 @@ Example 1: 192.168.93.89:8080
 Exampe 2: ${gateway}:8080</string>
         </property>
         <property name="alignment">
-         <set>Qt::AlignCenter</set>
+         <set>Qt::AlignmentFlag::AlignCenter</set>
         </property>
         <property name="wordWrap">
          <bool>true</bool>
@@ -2337,14 +2672,103 @@ Exampe 2: ${gateway}:8080</string>
         </property>
        </widget>
       </widget>
+      <widget class="QWidget" name="tabUiScale">
+       <attribute name="title">
+        <string>UI Scale</string>
+       </attribute>
+       <widget class="QLabel" name="labelUIScale">
+        <property name="geometry">
+         <rect>
+          <x>70</x>
+          <y>100</y>
+          <width>631</width>
+          <height>61</height>
+         </rect>
+        </property>
+        <property name="font">
+         <font>
+          <pointsize>17</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>A Restart Is Required After Every Change</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QLabel" name="labelUIScaleCurrentValue">
+        <property name="geometry">
+         <rect>
+          <x>70</x>
+          <y>170</y>
+          <width>631</width>
+          <height>31</height>
+         </rect>
+        </property>
+        <property name="font">
+         <font>
+          <pointsize>16</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string notr="true">Current Scale Value: NA</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignCenter</set>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="pbConfigureScaleUp">
+        <property name="geometry">
+         <rect>
+          <x>530</x>
+          <y>240</y>
+          <width>171</width>
+          <height>34</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Scale Up</string>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="pbConfigureScaleDown">
+        <property name="geometry">
+         <rect>
+          <x>80</x>
+          <y>240</y>
+          <width>171</width>
+          <height>34</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Scale Down</string>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="pbConfigureScaleReset">
+        <property name="geometry">
+         <rect>
+          <x>260</x>
+          <y>240</y>
+          <width>261</width>
+          <height>34</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Reset</string>
+        </property>
+       </widget>
+      </widget>
      </widget>
      <widget class="QPushButton" name="pbConfigureQuit">
       <property name="geometry">
        <rect>
-        <x>395</x>
-        <y>440</y>
+        <x>390</x>
+        <y>446</y>
         <width>221</width>
-        <height>31</height>
+        <height>33</height>
        </rect>
       </property>
       <property name="text">
@@ -2355,9 +2779,9 @@ Exampe 2: ${gateway}:8080</string>
       <property name="geometry">
        <rect>
         <x>170</x>
-        <y>440</y>
-        <width>225</width>
-        <height>31</height>
+        <y>446</y>
+        <width>221</width>
+        <height>33</height>
        </rect>
       </property>
       <property name="text">
@@ -2375,17 +2799,17 @@ Exampe 2: ${gateway}:8080</string>
         <x>0</x>
         <y>0</y>
         <width>791</width>
-        <height>471</height>
+        <height>481</height>
        </rect>
       </property>
       <property name="autoFillBackground">
        <bool>true</bool>
       </property>
       <property name="frameShape">
-       <enum>QFrame::NoFrame</enum>
+       <enum>QFrame::Shape::NoFrame</enum>
       </property>
       <property name="frameShadow">
-       <enum>QFrame::Plain</enum>
+       <enum>QFrame::Shadow::Plain</enum>
       </property>
       <property name="openExternalLinks">
        <bool>false</bool>
@@ -2430,20 +2854,15 @@ Exampe 2: ${gateway}:8080</string>
   <tabstop>pbLibraryQuit</tabstop>
   <tabstop>pbConfigureQuit</tabstop>
   <tabstop>cbConfigureLanguage</tabstop>
-  <tabstop>lineEditConfigureScaleFactor</tabstop>
   <tabstop>lineEditConfigureDownloadPath</tabstop>
   <tabstop>pbConfigureDownloadPath</tabstop>
-  <tabstop>pbConfigureDownload</tabstop>
-  <tabstop>pbConfigureAddAPlugin</tabstop>
-  <tabstop>pbConfigureRemoveAPlugin</tabstop>
   <tabstop>comboBoxConfigureDarkTheme</tabstop>
   <tabstop>cbConfigureShowMetaDataInBatchDownloader</tabstop>
   <tabstop>lineEditConfigureMaximuConcurrentDownloads</tabstop>
   <tabstop>pbConfigureSetPresetDefaults</tabstop>
   <tabstop>tabWidgetConfigure</tabstop>
   <tabstop>cbConfigureEngines</tabstop>
-  <tabstop>lineEditConfigureCookiePath</tabstop>
-  <tabstop>pbConfigureCookiePath</tabstop>
+  <tabstop>lineEditConfigureCookieBrowserName</tabstop>
   <tabstop>pbConfigureEngineDefaultOptions</tabstop>
   <tabstop>pbConfigureSave</tabstop>
   <tabstop>tabWidget</tabstop>

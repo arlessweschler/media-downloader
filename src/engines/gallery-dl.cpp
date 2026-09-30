@@ -19,6 +19,9 @@
 
 #include "gallery-dl.h"
 #include "../settings.h"
+#include "../utility.h"
+
+#include <QDesktopServices>
 
 const char * gallery_dl::testData()
 {
@@ -186,93 +189,344 @@ const char * gallery_dl::testData()
 }
 
 gallery_dl::gallery_dl( const engines& engines,const engines::engine& engine,QJsonObject& object ) :
-	engines::engine::functions( engines.Settings(),engine,engines.processEnvironment() )
+	engines::engine::baseEngine( engines.Settings(),engine,engines.processEnvironment() )
 {
-	if( !object.contains( "CookieArgument" ) ){
+	object.insert( "DownloadUrl","https://codeberg.org/api/v1/repos/mikf/gallery-dl/releases" ) ;
+}
 
-		object.insert( "CookieArgument","--cookies" ) ;
+bool gallery_dl::parse( const int& s,std::vector< QByteArray >& mm,QByteArray& data )
+{
+	int counter = 0 ;
+
+	int ss = s - 1 ;
+
+	while( true ){
+
+		ss++ ;
+
+		auto m = data[ ss ] ;
+
+		if( m == '{' ){
+
+			counter++ ;
+
+		}else if( m == '}' ){
+
+			counter-- ;
+		}
+
+		if( counter == 0 ){
+
+			mm.emplace_back( data.mid( s,ss + 1 ) ) ;
+
+			data = data.mid( ss + 1 ) ;
+
+			return false ;
+
+		}else if( ss >= data.size() ){
+
+			return true ;
+		}
+	}
+}
+
+std::vector< QByteArray > gallery_dl::parseJsonData( QByteArray& data )
+{
+	std::vector< QByteArray > mm ;
+
+	while( true ){
+
+		auto s = data.indexOf( "{" ) ;
+
+		if( s != -1 ){
+
+			if( this->parse( s,mm,data ) ){
+
+				break ;
+			}
+		}else{
+			break ;
+		}
 	}
 
-	object.insert( "ReplaceOutputWithProgressReport",false ) ;
+	return mm ;
+}
 
-	object.insert( "ControlJsonStructure",[](){
+class galleryDlparseData
+{
+public:
+	galleryDlparseData( const QString& url,const QJsonDocument& doc ) :
+		m_obj( doc.object() ),m_wurl( url )
+	{
+	}
+	QJsonObject toObj()
+	{
+		if( !m_fileName.isEmpty() ){
+
+			if( !m_extension.isEmpty() ){
+
+				m_fileName += "." + m_extension ;
+			}
+		}
+
+		if( m_title.isEmpty() ){
+
+			m_title = m_fileName ;
+		}else{
+			if( !m_fileName.isEmpty() ){
+
+				m_title = m_title + "\n" + m_fileName ;
+			}
+		}
+
+		if( m_url.isEmpty() ){
+
+			m_url = m_wurl + "/" + m_fileName ;
+		}
 
 		QJsonObject obj ;
 
-		obj.insert( "Connector","||" ) ;
-
-		obj.insert( "lhs",[](){
-
-			QJsonObject obj ;
-
-			obj.insert( "startsWith","[gallery-dl]" ) ;
-
-			return obj ;
-		}() ) ;
-
-		obj.insert( "rhs",[](){
-
-			QJsonObject obj ;
-
-			obj.insert( "contains","% " ) ;
-
-			return obj ;
-		}() ) ;
+		obj.insert( "direct_url",m_url ) ;
+		obj.insert( "fileName",m_fileName ) ;
+		obj.insert( "title",m_title ) ;
+		obj.insert( "thumbnail",m_thumbnail ) ;
 
 		return obj ;
-	}() ) ;
+	}
+	QJsonObject parseArtstation()
+	{
+		m_title     = m_obj.value( "title" ).toString() ;
+		m_fileName  = m_obj.value( "filename" ).toString() ;
+		m_extension = m_obj.value( "extension" ).toString() ;
+		m_url       = m_obj.value( "asset" ).toObject().value( "image_url" ).toString() ;
+		m_thumbnail = m_obj.value( "cover_url" ).toString() ;
+
+		return this->toObj() ;
+	}
+	QJsonObject parseDeviantart()
+	{
+		m_title     = m_obj.value( "title" ).toString() ;
+		m_fileName  = m_obj.value( "filename" ).toString() ;
+		m_extension = m_obj.value( "extension" ).toString() ;
+		m_url       = m_obj.value( "url" ).toString() ;
+
+		auto thumbnails = m_obj.value( "thumbs" ).toArray() ;
+
+		if( thumbnails.size() ){
+
+			m_thumbnail = thumbnails[ 0 ].toObject().value( "src" ).toString() ;
+		}
+
+		return this->toObj() ;
+	}
+	QJsonObject parseGeneric()
+	{
+		m_url       = m_obj.value( "url" ).toString() ;
+		m_thumbnail = m_obj.value( "thumbnail" ).toString() ;
+		m_fileName  = m_obj.value( "filename" ).toString() ;
+		m_extension = m_obj.value( "extension" ).toString() ;
+		m_title     = this->getValue( "title","seo_alt_text","auto_alt_text" ).toString() ;
+
+		auto imageList = m_obj.value( "images" ) ;
+
+		if( imageList.isUndefined() ){
+
+			auto s = m_obj.value( "media_asset" ).toObject() ;
+
+			if( !s.isEmpty() ){
+
+				this->setUrls( s.value( "variants" ).toArray() ) ;
+			}
+		}else{
+			this->setUrls( imageList.toVariant().toMap() ) ;
+		}
+
+		return this->toObj() ;
+	}
+	void setUrls( const QMap< QString,QVariant >& m )
+	{
+		if( m.size() ){
+
+			auto a = m.first().toJsonObject().value( "url" ).toString() ;
+			auto b = m.last().toJsonObject().value( "url" ).toString() ;
+
+			this->setUrls( a,b ) ;
+		}
+	}
+
+	void setUrls( const QJsonArray& m )
+	{
+		if( m.size() ){
+
+			auto a = m.first().toObject().value( "url" ).toString() ;
+			auto b = m.last().toObject().value( "url" ).toString() ;
+
+			this->setUrls( a,b ) ;
+		}
+	}
+	void setUrls( const QString& thumbnailUrl,const QString& url )
+	{
+		if( m_thumbnail.isEmpty() ){
+
+			m_thumbnail = thumbnailUrl ;
+		}
+
+		if( m_url.isEmpty() ){
+
+			m_url = url ;
+		}
+	}
+private:
+	template< typename Arg >
+	QJsonValue getValue( const Arg& arg )
+	{
+		return m_obj.value( arg ) ;
+	}
+	template< typename Arg,typename ... Args >
+	QJsonValue getValue( const Arg& arg,Args&& ... args )
+	{
+		auto m = m_obj.value( arg ) ;
+
+		if( m.isUndefined() ){
+
+			return this->getValue( std::forward< Args >( args ) ... ) ;
+		}else{
+			return m ;
+		}
+	}
+
+	QJsonObject m_obj ;
+	QString m_wurl ;
+	QString m_thumbnail ;
+	QString m_url ;
+	QString m_title ;
+	QString m_fileName ;
+	QString m_extension ;
+} ;
+
+QJsonObject gallery_dl::parseJson( const QString& url,const QByteArray& e )
+{
+	auto doc = utility::jsonDoc( e ) ;
+
+	if( doc.valid() ){
+
+		galleryDlparseData parser( url,doc.get() ) ;
+
+		if( url.contains( "artstation.com" ) ){
+
+			return parser.parseArtstation() ;
+
+		}else if( url.contains( "deviantart.com" ) ){
+
+			return parser.parseDeviantart() ;
+		}else{
+			return parser.parseGeneric() ;
+		}
+	}else{
+		return {} ;
+	}
+}
+
+util::Json gallery_dl::parsePlayListData( const QString& url,const QByteArray& e )
+{
+	return this->parseJson( url,e ) ;
+}
+
+engines::engine::baseEngine::onlineVersion gallery_dl::versionInfoFromGithub( const QByteArray& e )
+{
+	auto doc = utility::jsonDoc( e ) ;
+
+	if( doc.valid() ){
+
+		if( doc.isObject() ){
+
+			return engines::engine::baseEngine::versionInfoFromGithub( doc.get() ) ;
+
+		}else if( doc.isArray() ){
+
+			auto s = doc.toArray() ;
+
+			if( s.size() ){
+
+				QJsonDocument m( s[ 0 ].toObject() ) ;
+
+				return engines::engine::baseEngine::versionInfoFromGithub( m ) ;
+			}
+		}
+	}
+
+	return {} ;
+}
+
+engines::metadata gallery_dl::parseJsonDataFromGitHub( const QJsonDocument& e )
+{
+	if( e.isObject() ){
+
+		return engines::engine::baseEngine::parseJsonDataFromGitHub( e ) ;
+
+	}else if( e.isArray() ){
+
+		auto s = e.array() ;
+
+		if( s.size() ){
+
+			QJsonDocument doc( s[ 0 ].toObject() ) ;
+
+			return engines::engine::baseEngine::parseJsonDataFromGitHub( doc ) ;
+		}
+	}
+
+	return QJsonObject() ;
 }
 
 gallery_dl::~gallery_dl()
 {
 }
 
-engines::engine::functions::DataFilter gallery_dl::Filter( int id )
+engines::engine::baseEngine::DataFilter gallery_dl::Filter( int id )
 {
-	auto& s = engines::engine::functions::Settings() ;
-	const auto& engine = engines::engine::functions::engine() ;
+	auto& s = engines::engine::baseEngine::Settings() ;
+	const auto& engine = engines::engine::baseEngine::engine() ;
 
 	return { util::types::type_identity< gallery_dl::gallery_dlFilter >(),s,engine,id } ;
 }
 
-void gallery_dl::setProxySetting( QStringList& e,const QString& s )
+QString gallery_dl::downloadFolder( const QString& e )
+{
+	return e + "/gallery-dl" ;
+}
+
+void gallery_dl::openLocalFile( const engines::engine::baseEngine::localFile& s )
+{
+	if( s.fileNames.size() ){
+
+		const auto& e = s.downloadFolder ;
+		auto m = QUrl::fromLocalFile( e + "/gallery-dl/" + s.fileNames.back() ) ;
+
+		QDesktopServices::openUrl( m ) ;
+	}
+}
+
+void gallery_dl::runCommandOnDownloadedFile( const std::vector< QByteArray >& e )
+{
+	auto& s = engines::engine::baseEngine::Settings() ;
+	auto df = s.downloadFolder() + "/" + this->engine().name() + "/" ;
+	s.runCommandOnSuccessfulDownload( this->engine().name(),df,e ) ;
+}
+
+void gallery_dl::setProxySetting( engines::engine::baseEngine::optionsEnvironment&,QStringList& e,const QString& s )
 {
 	e.append( "--proxy" ) ;
 	e.append( s ) ;
 }
 
-void gallery_dl::runCommandOnDownloadedFile( const QString& e,const QString& )
+void gallery_dl::updateDownLoadCmdOptions( const engines::engine::baseEngine::updateOpts& opts,
+					   bool s,
+					   const QStringList& extraOpts )
 {
-	auto& settings = engines::engine::functions::Settings() ;
+	auto _not_contains = []( const engines::engine::baseEngine::updateOpts& opts,const char * e ){
 
-	auto a = settings.commandOnSuccessfulDownload() ;
-
-	if( !a.isEmpty() && !e.isEmpty() ){
-
-		auto args = util::split( a,' ',true ) ;
-		auto exe = args.takeAt( 0 ) ;
-		args.append( "bla bla bla" ) ;
-		auto pos = args.size() - 1 ;
-
-		for( const auto& it : util::split( e,'\n',true ) ){
-
-			auto b = settings.downloadFolder() + "/gallery-dl/" + it ;
-
-			if( QFile::exists( b ) ){
-
-				args.replace( pos,b ) ;
-
-				QProcess::startDetached( exe,args ) ;
-			}
-		}
-	}
-}
-
-void gallery_dl::updateDownLoadCmdOptions( const engines::engine::functions::updateOpts& opts,bool s )
-{
-	auto _not_contains = []( const engines::engine::functions::updateOpts& opts,const char * e ){
-
-		for( const auto& it : opts.ourOptions ){
+		for( const auto& it : util::asConst( opts.ourOptions ) ){
 
 			if( it == e ){
 
@@ -285,54 +539,67 @@ void gallery_dl::updateDownLoadCmdOptions( const engines::engine::functions::upd
 
 	if( _not_contains( opts,"-D" ) && _not_contains( opts,"-d" ) ){
 
-		const auto& s = engines::engine::functions::Settings().downloadFolder() ;
+		const auto& s = engines::engine::baseEngine::Settings().downloadFolder() ;
 
 		opts.ourOptions.prepend( s + "/gallery-dl" ) ;
 		opts.ourOptions.prepend( "-d" ) ;
 	}
 
+	opts.ourOptions.prepend( "--no-colors" ) ;
+
+	opts.ourOptions.prepend( "output.shorten=false" ) ;
+	opts.ourOptions.prepend( "-o" ) ;
+
 	opts.ourOptions.prepend( "output.mode=terminal" ) ;
 	opts.ourOptions.prepend( "-o" ) ;
 
-	engines::engine::functions::updateDownLoadCmdOptions( opts,s ) ;
+	engines::engine::baseEngine::updateDownLoadCmdOptions( opts,s,extraOpts ) ;
 }
 
 QString gallery_dl::updateTextOnCompleteDownlod( const QString& uiText,
 						 const QString& bkText,
 						 const QString& dopts,
-						 const engines::engine::functions::finishedState& f )
+						 const QString& tabName,
+						 const engines::engine::baseEngine::finishedState& f )
 {
 	if( f.success() ){
 
-		return engines::engine::functions::updateTextOnCompleteDownlod( uiText,dopts,f ) ;
+		if( uiText.isEmpty() ){
+
+			auto m = QObject::tr( "Warning, Nothing Was Downloaded" ) ;
+
+			return m + "\n" + engines::engine::baseEngine::updateTextOnCompleteDownlod( bkText,dopts,tabName,f ) ;
+		}else{
+			return engines::engine::baseEngine::updateTextOnCompleteDownlod( uiText,dopts,tabName,f ) ;
+		}
 
 	}else if( f.cancelled() ){
 
-		return engines::engine::functions::updateTextOnCompleteDownlod( bkText,dopts,f ) ;
+		return engines::engine::baseEngine::updateTextOnCompleteDownlod( bkText,dopts,tabName,f ) ;
 
 	}else if( uiText.contains( "Name or service not known" ) ){
 
-		auto m = engines::engine::functions::errors::unknownUrl ;
-		return engines::engine::functions::errorString( f,m,bkText ) ;
+		auto m = engines::engine::baseEngine::errors::unknownUrl ;
+		return engines::engine::baseEngine::errorString( f,m,bkText ) ;
 
 	}else if( uiText.contains( "Temporary failure in name resolution" ) ){
 
-		auto m = engines::engine::functions::errors::noNetwork ;
-		return engines::engine::functions::errorString( f,m,bkText ) ;
+		auto m = engines::engine::baseEngine::errors::noNetwork ;
+		return engines::engine::baseEngine::errorString( f,m,bkText ) ;
 	}else{
-		auto m = engines::engine::functions::processCompleteStateText( f ) ;
+		auto m = engines::engine::baseEngine::processCompleteStateText( f ) ;
 		return m + "\n" + bkText ;
 	}
 }
 
 gallery_dl::gallery_dlFilter::gallery_dlFilter( settings&,const engines::engine& engine,int id ) :
-	engines::engine::functions::filter( engine,id ),
+	engines::engine::baseEngine::filter( engine,id ),
 	m_speed( QObject::tr( "Speed:" ) ),
 	m_downloaded( QObject::tr( "Downloaded" ) )
 {
 }
 
-const QByteArray& gallery_dl::gallery_dlFilter::operator()( const Logger::Data& s )
+const QByteArray& gallery_dl::gallery_dlFilter::operator()( Logger::Data& s )
 {
 	if( s.doneDownloading() ){
 
@@ -356,11 +623,9 @@ const QByteArray& gallery_dl::gallery_dlFilter::operator()( const Logger::Data& 
 
 	const auto data = s.toStringList() ;
 
-	QStringList m ;
+	if( m_dir.isEmpty() && data.size() ){
 
-	if( m_dir.isEmpty() ){
-
-		const QByteArray& e = *data.begin() ;
+		const auto& e = data.begin()->data() ;
 
 		if( e.startsWith( "[media-downloader] cmd:" ) ){
 
@@ -386,41 +651,49 @@ const QByteArray& gallery_dl::gallery_dlFilter::operator()( const Logger::Data& 
 
 	for( const auto& e : data ){
 
-		auto u = QDir::fromNativeSeparators( e ) ;
+		auto u = QDir::fromNativeSeparators( e.data() ) ;
 
 		auto n = u.indexOf( m_dir ) ;
 
 		if( n != -1 ){
 
-			auto s = u.mid( n + m_dir.size() + 1 ) ;
+			auto ss = u.mid( n + m_dir.size() + 1 ).trimmed() ;
 
-			if( !m.contains( s ) && !u.startsWith( "[media-downloader] cmd:" ) ){
+			if( !u.startsWith( "[media-downloader] cmd:" ) ){
 
-				m.append( s ) ;
+				s.addFileName( ss.toUtf8() ) ;
 			}
 		}else{
 			n = u.indexOf( "./gallery-dl" ) ;
 
 			if( n != -1 ){
 
-				auto s = u.mid( n + 13 ) ;
+				auto ss = u.mid( n + 13 ).trimmed() ;
 
-				if( !m.contains( s ) && !u.startsWith( "[media-downloader] cmd:" ) ){
+				if( !u.startsWith( "[media-downloader] cmd:" ) ){
 
-					m.append( s ) ;
+					s.addFileName( ss.toUtf8() ) ;
 				}
 			}
 		}
 	}
 
-	if( !m.isEmpty() ){
+	const auto& m = s.fileNames() ;
+
+	if( m.size() ){
 
 		if( m.size() < 4 ){
 
-			m_tmp = m.join( "\n" ).toUtf8() ;
+			auto begin = m.begin() ;
+
+			m_tmp = *begin ;
+
+			for( auto it = begin + 1 ; it != m.end() ; it++ ){
+				m_tmp += "\n" + *it ;
+			}
 		}else{
 			auto a = QObject::tr( "%1 Already Downloaded" ).arg( QString::number( m.size() - 1 ) ) ;
-			m_tmp = a.toUtf8() + "\n" + m.last().toUtf8() ;
+			m_tmp = a.toUtf8() + "\n" + m.back() ;
 		}
 
 		if( s.lastLineIsProgressLine() ){

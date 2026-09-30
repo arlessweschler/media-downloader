@@ -18,7 +18,6 @@
  */
 
 #include "mainwindow.h"
-#include "ui_mainwindow.h"
 #include "utility.h"
 #include "tabmanager.h"
 
@@ -33,17 +32,20 @@ MainWindow::MainWindow( QApplication& app,
 			translator& t,
 			const engines::enginePaths& paths,
 			const utility::cliArguments& args ) :
-	m_trayIcon( QIcon::fromTheme( "media-downloader",QIcon( ":media-downloader" ) ) ),
+	m_trayIcon( s.getIcon( "media-downloader" ) ),
 	m_qApp( app ),
 	m_appName( "Media Downloader" ),
 	m_ui( this ),
 	m_logger( m_ui.plainTextEditLogger(),this,s ),
-	m_engines( m_logger,paths,s,utility::sequentialID() ),
+	m_engines( m_logger,paths,s,utility::loggerID() ),
 	m_printOutPut( args ),
 	m_tabManager( s,t,m_engines,m_logger,m_ui.get(),*this,*this,m_appName,m_printOutPut ),
 	m_settings( s ),
-	m_showTrayIcon( s.showTrayIcon() )
+	m_showTrayIcon( s.showTrayIcon() ),
+	m_shortcut( this )
 {
+	m_logger.setContext( m_tabManager.ctx() ) ;
+
 	MainWindow::setUpSignals( this ) ;
 
 	this->setTitle( m_appName ) ;
@@ -51,7 +53,7 @@ MainWindow::MainWindow( QApplication& app,
 	qRegisterMetaType< utility::networkReply >() ;
 	qRegisterMetaType< reportFinished >() ;
 
-	this->window()->setFixedSize( this->window()->size() ) ;
+	m_settings.setMainWindowDimensions( this->window() ) ;
 
 	this->window()->setWindowIcon( m_trayIcon.icon() ) ;
 
@@ -68,6 +70,10 @@ MainWindow::MainWindow( QApplication& app,
 
 		return m ;
 	}() ) ;
+
+	auto qe = Qt::QueuedConnection ;
+
+	connect( this,&MainWindow::processEventSignal,this,&MainWindow::processEventSlot,qe ) ;
 
 	connect( &m_trayIcon,&QSystemTrayIcon::activated,[ this ]( QSystemTrayIcon::ActivationReason ){
 
@@ -128,6 +134,30 @@ void MainWindow::showTrayIcon( bool e )
 	}
 }
 
+void MainWindow::keyPressEvent( QKeyEvent * e )
+{
+	auto key = static_cast< Qt::Key >( e->key() ) ;
+
+	if( e->modifiers() & Qt::CTRL ){
+
+		if( key == Qt::Key_D ){
+
+			m_tabManager.keyPressed( utility::mainWindowKeyCombo::CTRL_D ) ;
+
+		}else if( key == Qt::Key_A ){
+
+			m_tabManager.keyPressed( utility::mainWindowKeyCombo::CTRL_A ) ;
+		}
+	}else{
+		if( key == Qt::Key_Enter || key == Qt::Key_Return ){
+
+			m_tabManager.keyPressed( utility::mainWindowKeyCombo::ENTER ) ;
+		}
+	}
+
+	QWidget::keyPressEvent( e ) ;
+}
+
 void MainWindow::retranslateUi()
 {
 	m_ui.retranslateUi( this ) ;
@@ -155,10 +185,7 @@ void MainWindow::Show()
 
 void MainWindow::processEvent( const QByteArray& m )
 {
-	auto a = "processEventSlot" ;
-	auto b = Qt::QueuedConnection ;
-
-	QMetaObject::invokeMethod( this,a,b,Q_ARG( QByteArray,m ) ) ;
+	emit this->processEventSignal( m ) ;
 }
 
 void MainWindow::processEventSlot( const QByteArray& e )
@@ -172,11 +199,40 @@ void MainWindow::quitApp()
 
 	m_tabManager.exiting() ;
 
+	if( m_dataNotSaved ){
+
+		m_dataNotSaved = false ;
+		this->saveData() ;
+	}
+
 	QCoreApplication::quit() ;
+}
+
+void MainWindow::saveData()
+{
+	m_tabManager.batchDownloader().saveData() ;
+	m_tabManager.playlistDownloader().saveData() ;
+}
+
+void MainWindow::notifyOnDownloadComplete( const QString& e )
+{
+	auto m = QSystemTrayIcon::Information ;
+	auto s = m_settings.desktopNotificationTimeOut() ;
+
+	m_trayIcon.showMessage( "Download Complete",e,m,s ) ;
+}
+
+void MainWindow::notifyOnAllDownloadComplete( const QString& e )
+{
+	auto m = QSystemTrayIcon::Information ;
+	auto s = m_settings.desktopNotificationTimeOut() ;
+
+	m_trayIcon.showMessage( "All Downloads Complete",e,m,s ) ;
 }
 
 MainWindow::~MainWindow()
 {
+	m_settings.saveMainWindowDimensions( this->window()->geometry() ) ;
 }
 
 MainWindow * MainWindow::m_mainWindow ;
@@ -197,14 +253,12 @@ void MainWindow::setUpSignal( int sig )
 	std::signal( sig,MainWindow::signalHandler ) ;
 }
 
-void MainWindow::closeEvent( QCloseEvent * e )
+void MainWindow::closeEvent( QCloseEvent * )
 {
-	e->ignore() ;
+	if( m_showTrayIcon ){
 
-	this->hide() ;
-
-	if( !m_showTrayIcon ){
-
+		this->hide() ;
+	}else{
 		this->quitApp() ;
 	}
 }

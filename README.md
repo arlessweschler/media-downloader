@@ -1,4 +1,4 @@
-# media-downloader
+# Media Downloader
 
 This project is a Qt/C++ based GUI frontend to CLI multiple CLI-based tools that deal with downloading online media.
 
@@ -12,7 +12,7 @@ Features offered:-
 
 2. The GUI offers a configurable list of preset options that can be used to download media if they are provided in multiple formats.
 
-3. The GUI offers the ability to do an unlimited number of parallel downloads. Be careful with this ability because doing too many parallel
+3. The GUI offers the ability to do an unlimited number of concurrent downloads. Be careful with this ability because doing too many concurrent
 downloads may cause the host to ban you.
 
 4. The GUI offers the ability to do batch downloads by entering individual links in the UI or telling the app to read them from a local file.
@@ -21,37 +21,71 @@ downloads may cause the host to ban you.
 
 6. The GUI offers the ability to manage links to playlists to easily monitor their activities(subscriptions).
 
-7. The GUI is offered in multiple languages and as of this writing, the supported languages are English, Chinese, Spanish, Polish,
-Turkish, Russian, Japanese, French, and Italian.
-
-## Donations
-Donations are very much appreciated, Please contact me using mhogomchungu _at__ gmail _dot__ com for further information.
+7. The GUI is offered in multiple languages and as of this writing, the supported languages are English, Chinese, Spanish, Polish, Turkish, Russian, Japanese, French, Italian, Portuguese, Arabic, Korean, Swedish, German, Greek and Ukrainian.
 
 ## Extensions
 
-Media Downloader is a GUI front end to [yt-dlp](https://github.com/yt-dlp/yt-dlp), [youtube-dl](https://github.com/ytdl-org/youtube-dl/), [gallery-dl](https://github.com/mikf/gallery-dl), [lux](https://github.com/iawia002/lux),
-[you-get](https://github.com/soimort/you-get), [svtplay-dl](https://github.com/spaam/svtplay-dl), [aria2c](https://aria2.github.io/), [wget](https://www.gnu.org/software/wget) and [safari books](https://github.com/mhogomchungu/safaribooks).
+Media Downloader is a GUI front end to [yt-dlp](https://github.com/yt-dlp/yt-dlp), [gallery-dl](https://github.com/mikf/gallery-dl), [you-get](https://github.com/soimort/you-get), [svtplay-dl](https://github.com/spaam/svtplay-dl), [aria2c](https://aria2.github.io/), [wget](https://www.gnu.org/software/wget) and [get-sauce](https://github.com/gan-of-culture/get-sauce).
 
-Read the [extensions](https://github.com/mhogomchungu/media-downloader/wiki/Extensions) page for further information on these programs and how to install them.
+To Install these extensins, go to "Configure" tab and then go to "Extensions" sub tab and then click the "Add An Extension" button and then select from the list an extension you want to install.
 
 ## FAQ
 A Frequently asked Questions page is [here](https://github.com/mhogomchungu/media-downloader/wiki/Frequently-Asked-Questions).
 
 #### Prerequisite before running for the first time
 
-Make sure you have access to the internet before you run the media-downloader for the first time because it will attempt to use the internet to download the latest version of yt-dlp. Installing most extensions will also cause the media-downloader to access the internet to download the extension's executable.
+Make sure you have access to the internet before you run "Media Downloader" for the first time because it will attempt to use the internet to download the latest version of yt-dlp. Installing most extensions will also cause "Media Downloader" to access the internet to download the extension's executable.
 
 ## Binary packages
 
+#### Bundle for MacOS
+
+Bundle for arm64 build of MacOS is [here](https://github.com/mhogomchungu/media-downloader/releases/download/5.6.6/MediaDownloaderQt6-arm64-5.6.6.dmg).
+
+Bundle for x86_64 build of MacOS is [here](https://github.com/mhogomchungu/media-downloader/releases/download/5.6.6/MediaDownloaderQt6-x86_64-5.6.6.dmg).
+
+These bundles are not notarized and your system may report it as "corrupted". Search the internet on how to install bundles that are not notarized if you want to use this app on MacOS. This bundle works on macOS 14.0 or later.
+
 #### Installer for Microsoft Windows
 
-Installer for Microsoft Windows is [here](https://github.com/mhogomchungu/media-downloader/releases/download/4.2.0/MediaDownloader-4.2.0.setup.exe).
+Installer for Microsoft Windows that is 32 bit, build with Qt5 and has a minimum requirenment of windows 7 is [here](https://github.com/mhogomchungu/media-downloader/releases/download/5.6.6/MediaDownloaderQt5-5.6.6.setup.exe).
+
+Installer for Microsoft Windows that is 64 bit, build with Qt6 and has a minimum requirenment of windows 10 is [here](https://github.com/mhogomchungu/media-downloader/releases/download/5.6.6/MediaDownloaderQt6-5.6.6.setup.exe).
 
 #### Portable version for Microsoft Windows
 
-A portable version is a self-contained version that keeps everything in the application folder.
+A portable version is a self-contained version that keeps everything in the application folder and does not need to be installed first.
 
-Portable version for Microsoft Windows is [here](https://github.com/mhogomchungu/media-downloader/releases/download/4.2.0/MediaDownloader-4.2.0.zip).
+Portable version for Microsoft Windows that is 32 bit, build with Qt5 and has a minimum requirenment of windows 7 is [here](https://github.com/mhogomchungu/media-downloader/releases/download/5.6.6/MediaDownloaderQt5-5.6.6.zip).
+
+Portable version for Microsoft Windows that is 64 bit, build with Qt6 and has a minimum requirenment of windows 10 is [here](https://github.com/mhogomchungu/media-downloader/releases/download/5.6.6/MediaDownloaderQt6-5.6.6.zip).
+
+You can also install the portable version for Windows using scoop with the following commands:
+
+Add the extras bucket:
+```powershell
+scoop bucket add extras
+```
+Install Media Downloader:
+```powershell
+scoop install media-downloader
+```
+
+Git versions for windows and macos can be downloaded from [here](https://github.com/mhogomchungu/media-downloader-git/releases).
+
+#### Problems with Windows's antivirus programs
+
+Once in a while, Windows Defender and other antivirus tools will report this application as a virus/unsafe
+or Potentially unwanted. These are false positive reports and they are tracked [here](https://github.com/mhogomchungu/media-downloader/issues/481).
+
+
+#### Flatpak
+
+Media Downloader is on [flathub](https://flathub.org/apps/io.github.mhogomchungu.media-downloader) for those who prefer to use flatpaks.
+
+### AppImage
+
+Users of AppImages can get an AppImage package of Media Downloader from [here](https://github.com/pkgforge-dev/Media-Downloader-AppImage/releases).
 
 #### Aur package for Arch Linux
 Arch Linux users can build the project from source using [this](https://aur.archlinux.org/packages/media-downloader) aur package.
@@ -61,48 +95,44 @@ Media Downloader is in official Fedora repositories and can be installed by runn
 
 ### Binary packages for other Linux distributions
 
-Binary downloads for a few Linux distributions are [here](https://software.opensuse.org//download.html?project=home%3Aobs_mhogomchungu&package=media-downloader).
+Binary packages i maintain for a few Linux distributions are [here](https://software.opensuse.org//download.html?project=home%3Aobs_mhogomchungu&package=media-downloader).
 
-#### Binary package for Ubuntu
-To install a binary package in Ubuntu, download a binary package directly and then click it and Ubuntu should offer to install it.
-If unsuccessful, follow the instructions below for Debian.
+### Packaging Status
 
-#### Binary package for Debian
-To install a binary package for Debian, download a binary package directly and then install it by doing the following:-
-from the folder where you download the package.
-```
-1. Make sure you have Qt libraries installed.
-2. Open the terminal.
-3. Change directories to where the debian package is.
-4. Run the following command to install it: su -c "dpkg -i *.deb"
-5. Enter root's password when asked.
-```
-#### Binary package for Fedora and OpenSuse
-To install a binary package for Fedora and OpenSuse, download a binary package directly and then install it by doing the following:-
-```
-1. Make sure you have Qt libraries installed.
-2. Open the terminal.
-3. Change directories to where the debian package is.
-4. Run the following command to install it: sudo rpm –i *.rpm
-5. Enter root's password when asked.
-```
-## Source packages
-To build from the source, follow the following instructions
-```
-1. Make sure you have the following packages installed:-
-    - Development version of Qt libraries. They will be named
-      something like "libqt5-qtbase-devel" or "qt5-devel" or
-      "qtbase5-dev" or something else that sounds similar.
-    - cmake
-    - gcc
-2. Download the source archive and extract it.
-3. Open the terminal and change directories to inside the extracted folder.
-4. Run command: "mkdir build"
-5. Run command: "cd build"
-6. Run command: "cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=release .."
-7. Run command: "make"
-8. Fun command: "sudo make install"
+A short list of distributions that have Media Downloader in their repositories and the version they have is maintained [here](https://repology.org/project/media-downloader/badges).
 
+
+# How to compile for Linux
+
+1. clone the repo and cd into it
+```console
+git clone https://github.com/mhogomchungu/media-downloader && cd media-downloader
+```
+
+2. chmod it to make it a executeable
+```console
+chmod +x build_linux.sh
+```
+
+3. now run the shell script
+```console
+./build_linux.sh
+```
+
+
+### Fedora
+
+Fedora users can use the following script to build from source:
+
+```console
+./build_fedora.sh
+```
+### Arch linux
+
+Arch linux users can use the following script to build from source:
+
+```console
+./build_arch.sh
 ```
 
 # Screenshots

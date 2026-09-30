@@ -47,7 +47,7 @@ TRANSLATIONS = \
 ../translations/en_US.ts \
 ../translations/pl_PL.ts \
 ../translations/zh_CN.ts \
-../translations/es.ts \
+../translations/es_ES.ts \
 ../translations/tr_TR.ts \
 ../translations/ru_RU.ts \
 ../translations/ja_JP.ts \
@@ -56,5 +56,9 @@ TRANSLATIONS = \
 ../translations/sv_SE.ts \
 ../translations/de_DE.ts \
 ../translations/pt_BR.ts \
-../translations/nl_NL.ts
-
+../translations/nl_NL.ts \
+../translations/ko_KR.ts \
+../translations/ar.ts \
+../translations/el_GR.ts \
+../translations/bg_BG.ts \
+../translations/uk_UA.ts

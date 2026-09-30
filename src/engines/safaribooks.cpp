@@ -82,7 +82,7 @@ jQuery, and Mock, along with curre...
 }
 
 safaribooks::safaribooks( const engines& engines,const engines::engine& engine,QJsonObject& object ) :
-	engines::engine::functions( engines.Settings(),engine,engines.processEnvironment() ),
+	engines::engine::baseEngine( engines.Settings(),engine,engines.processEnvironment() ),
 	m_engine( engine )
 {
 	if( !object.contains( "ControlJsonStructure" ) ){
@@ -150,10 +150,6 @@ safaribooks::safaribooks( const engines& engines,const engines::engine& engine,Q
 }
 
 safaribooks::~safaribooks()
-{
-}
-
-void safaribooks::runCommandOnDownloadedFile( const QString&,const QString& )
 {
 }
 
@@ -249,15 +245,19 @@ QString safaribooks::setCredentials( QStringList& uiOptions,QStringList& otherOp
 	return m ;
 }
 
-void safaribooks::updateDownLoadCmdOptions( const engines::engine::functions::updateOpts& s,bool e )
+void safaribooks::updateDownLoadCmdOptions( const engines::engine::baseEngine::updateOpts& s,
+					    bool e,
+					    const QStringList& extraOpts )
 {
 	if( s.urls.size() > 0 ){
 
-		s.urls[ 0 ] = util::split( s.urls[ 0 ],'/',true ).last() ;
+		const auto m = util::split( s.urls[ 0 ],'/',true ) ;
+
+		s.urls[ 0 ] = m.last() ;
 	}
 
 	s.ourOptions.append( "--destination" ) ;
-	s.ourOptions.append( engines::engine::functions::Settings().downloadFolder() ) ;
+	s.ourOptions.append( engines::engine::baseEngine::Settings().downloadFolder() ) ;
 
 	if( utility::platformIsWindows() || !s.credentials.isEmpty() ){
 
@@ -273,5 +273,5 @@ void safaribooks::updateDownLoadCmdOptions( const engines::engine::functions::up
 		s.ourOptions.append( "--login" ) ;
 	}
 
-	engines::engine::functions::updateDownLoadCmdOptions( s,e ) ;
+	engines::engine::baseEngine::updateDownLoadCmdOptions( s,e,extraOpts ) ;
 }

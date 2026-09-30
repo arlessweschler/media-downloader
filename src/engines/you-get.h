@@ -23,24 +23,25 @@
 
 class settings ;
 
-class you_get : public engines::engine::functions
+class you_get : public engines::engine::baseEngine
 {
 public:
+	static bool installed( const engines::enginePaths& ) ;
 	~you_get() override ;
 	you_get( const engines&,const engines::engine&,QJsonObject& ) ;
 
-	class you_getFilter : public engines::engine::functions::filter
+	class you_getFilter : public engines::engine::baseEngine::filter
 	{
 	public:
 		you_getFilter( settings&,const engines::engine&,int ) ;
 
-		const QByteArray& operator()( const Logger::Data& e ) override ;
+		const QByteArray& operator()( Logger::Data& e ) override ;
 
 		~you_getFilter() override ;
 	private:
 		QByteArray m_title ;
 		QByteArray m_tmp ;
-		engines::engine::functions::preProcessing m_preProcessing ;
+		engines::engine::baseEngine::preProcessing m_preProcessing ;
 		int m_processId ;
 	} ;
 
@@ -48,17 +49,22 @@ public:
 
 	bool foundNetworkUrl( const QString& ) override ;
 
-	void setProxySetting( QStringList&,const QString& ) override ;
+	void setProxySetting( engines::engine::baseEngine::optionsEnvironment&,QStringList&,const QString& ) override ;
 
-	void renameArchiveFolder( const QString& ) override ;
+	renameArchiveFolderStatus renameArchiveFolder( const QString&,const QString& ) override ;
 
-	std::vector< engines::engine::functions::mediaInfo > mediaProperties( Logger&,const QByteArray& ) override ;
+	std::vector< engines::engine::baseEngine::mediaInfo > mediaProperties( Logger&,const QByteArray& ) override ;
 
-	engines::engine::functions::DataFilter Filter( int ) override ;
+	engines::engine::baseEngine::DataFilter Filter( int ) override ;
 
 	QString updateTextOnCompleteDownlod( const QString& uiText,
 					     const QString& bkText,
 					     const QString& downloadingOptions,
-					     const engines::engine::functions::finishedState& ) override ;
+					     const QString& tabName,
+					     const engines::engine::baseEngine::finishedState& ) override ;
 private:
+	QString archiveExtension()
+	{
+		return ".tar.gz" ;
+	}
 };

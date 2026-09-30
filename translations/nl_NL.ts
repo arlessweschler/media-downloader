@@ -44,14 +44,6 @@
         <translation>Over</translation>
     </message>
     <message>
-        <source>Remove A Plugin</source>
-        <translation>Verwijder plugin</translation>
-    </message>
-    <message>
-        <source>Add a Plugin</source>
-        <translation>Voeg plugin toe</translation>
-    </message>
-    <message>
         <source>General Options</source>
         <translation>Algemene opties</translation>
     </message>
@@ -62,10 +54,6 @@
     <message>
         <source>Download Options</source>
         <translation>Download opties</translation>
-    </message>
-    <message>
-        <source>Dark Theme(Need A Restart)</source>
-        <translation>Donker thema(Herstarten)</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -110,10 +98,6 @@
     <message>
         <source>Url To Download</source>
         <translation>Url om te downloaden</translation>
-    </message>
-    <message>
-        <source>Path To Cookie FIle</source>
-        <translation>Pad naar Cookie bestand</translation>
     </message>
     <message>
         <source>Refresh</source>
@@ -232,18 +216,6 @@
         <translation>home</translation>
     </message>
     <message>
-        <source>Enable Library Tab(May Cause The UI To Freeze For A Very Long TIme If Download Folder Has Too Many Entries)</source>
-        <translation>Tabblad Bibliotheek inschakelen (kan ertoe leiden dat de gebruikersinterface voor een zeer lange tijd vastloopt als de downloadmap te veel items bevat)</translation>
-    </message>
-    <message>
-        <source>Update Plugin</source>
-        <translation></translation>
-    </message>
-    <message>
-        <source>Scale Factor(Need A Restart)</source>
-        <translation>Schaalfactor (herstart nodig)</translation>
-    </message>
-    <message>
         <source>Show Tray Icon</source>
         <translation>Toon systeemvakpictogram</translation>
     </message>
@@ -289,10 +261,6 @@
     </message>
     <message>
         <source>Website</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Show MetaData In Batch Downloader Tab</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -347,6 +315,134 @@ Exampe 2: ${gateway}:8080</source>
     </message>
     <message>
         <source>Actions At Startup</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>File Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Play Downloaded Media</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rename</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enter Playlist Url. To Add Multiple Playlists, Separate Them With A Space Or New Line</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rename File To Below Text</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>A Button To Open A Folder To Be Used As A Download Folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>A Button To Open A Folder Where Theme Config Files Are Stored</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>A Button To Open A Folder Where Extension&apos;s Binaries Are Stored</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Are You Sure You Want To Reset These Options To Their Defaults?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Yes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Name Of Web Browser To Get Cookies From</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Theme(Need A Restart)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Switch Between Setting Browser Name And Path To Cookie File</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show MetaData In Batch Downloader</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Auto Download Added Entries In Batch Downloader</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Notify When Download Completes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Notify When All Downloads Complete</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Engine&apos;s Options</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Extensions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove An Extension</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Update An Extension</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add An Extension</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open Binary Folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open Extension Folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>UI Scale</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>A Restart Is Required After Every Change</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Scale Up</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Scale Down</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Use Deno From System If Available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Use Extension From System If Available</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -433,10 +529,6 @@ Exampe 2: ${gateway}:8080</source>
         <translation>2. Ga naar het subtabblad &quot;Algemene opties&quot;.</translation>
     </message>
     <message>
-        <source>Author</source>
-        <translation>Auteur</translation>
-    </message>
-    <message>
         <source>Japanese (Japan)</source>
         <translation>Japanees(Japan)</translation>
     </message>
@@ -445,16 +537,8 @@ Exampe 2: ${gateway}:8080</source>
         <translation>Begin downloading</translation>
     </message>
     <message>
-        <source>Normal</source>
-        <translation>Normaal</translation>
-    </message>
-    <message>
         <source>Download cancelled</source>
         <translation>Download geannuleerd</translation>
-    </message>
-    <message>
-        <source>Completed: %1%, Not Started: %2, Succeeded: %3, Failed: %4, Cancelled: %5</source>
-        <translation>Voltooid: %1%, Niet gestart: %2, Geslaagd: %3, Mislukt: %4, Geannuleerd: %5</translation>
     </message>
     <message>
         <source>Download completed</source>
@@ -471,10 +555,6 @@ Exampe 2: ${gateway}:8080</source>
     <message>
         <source>Download</source>
         <translation></translation>
-    </message>
-    <message>
-        <source>Checking installed version of</source>
-        <translation>Geïnstalleerde versie controleren</translation>
     </message>
     <message>
         <source>Failed to find version information, make sure &quot;%1&quot; is installed and works properly</source>
@@ -495,10 +575,6 @@ Exampe 2: ${gateway}:8080</source>
     <message>
         <source>Failed to parse json file from github</source>
         <translation>Kan het json-bestand van github niet ontleden</translation>
-    </message>
-    <message>
-        <source>Renaming file to: </source>
-        <translation>Hernoem bestand naar: </translation>
     </message>
     <message>
         <source>Turkish (Turkey)</source>
@@ -547,10 +623,6 @@ Exampe 2: ${gateway}:8080</source>
     <message>
         <source>Copyright</source>
         <translation>Auteursrechten</translation>
-    </message>
-    <message>
-        <source>Qt Version</source>
-        <translation>Qt Versie</translation>
     </message>
     <message>
         <source>This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.</source>
@@ -673,10 +745,6 @@ Exampe 2: ${gateway}:8080</source>
         <translation>Update voltooid, herstart om nieuwe versie te gebruiken</translation>
     </message>
     <message>
-        <source>File Not Found</source>
-        <translation>Bestand niet gevonden</translation>
-    </message>
-    <message>
         <source>Download complete</source>
         <translation>Download compleet</translation>
     </message>
@@ -773,10 +841,6 @@ Exampe 2: ${gateway}:8080</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Failed To Find &quot;tar&quot; Executable</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Running In Portable Mode</source>
         <translation type="unfinished"></translation>
     </message>
@@ -868,6 +932,233 @@ Exampe 2: ${gateway}:8080</source>
         <source>Newest Version Is: %1</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Failed To Start Executable %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy Url</source>
+        <translation type="unfinished">Kopie URL</translation>
+    </message>
+    <message>
+        <source>Open Url With %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy Url %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Windows&apos; Secure Channel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Trouble Ahead, Failed To Delete Folder: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Other Websites</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Extract Audio</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Extract Audio As MP3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Arabic</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Best Available Audio Only+Thumbnail</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Youtube</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Autoupdate Disabled For %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Newest Version Is %1, AutoUpdate Disabled</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Author: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Like Count: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Korean (Korea)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sign In To Confirm You Are Not A Bot</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show/Hide Controls</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Merging Audio and Video Together</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remuxing video</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Greek (Greece)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Platform Default</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed To Rename</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Completed: %1, Running: %2, Not Started: %3, Succeeded: %4, Failed: %5, Cancelled: %6</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stopping Because Media Is Already In Archive File</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bulgarien (Bulgaria)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open Urls With %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Default Player</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Warning, Nothing Was Downloaded</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download Cancelled, Playlist Urls Are Not Allowed In This Tab</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download Cancelled Because A Condition Was Not Met</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download Failed, Unknown Reason</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download Failed, Network Issue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ukrainian (Ukraine)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Renaming &quot;%1&quot; to &quot;%2&quot;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Renaming Failed: %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Skipping Checking Download Hash</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ignoring Download Because Hashes Do Not Match</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Expected &quot;%1&quot; but obtained &quot;%2&quot;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed To Remove</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Renaming file to: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Skipping Checking Version Info For Engine &quot;%1&quot;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed To Find &quot;bsdtar&quot; or &quot;unzip&quot; Executable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New Ui Scale Factor: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Getting</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Paste Clipboard Url</source>
+        <translation type="unfinished">Klembord-URL plakken</translation>
+    </message>
+    <message>
+        <source>Extracting Audio</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show Download History</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sign In To Confirm You Age</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Current Language in Use: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Qt Version: %1&lt;br&gt;&lt;br&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Translators: NAME_AND_DATE_EXAMPLE: John Smith(2021-2026), Tembo(2022,2025)</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>basicdownloader</name>
+    <message>
+        <source>Hide List</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>batchdownloader</name>
@@ -924,27 +1215,31 @@ Exampe 2: ${gateway}:8080</source>
         <translation>Toon commentaar</translation>
     </message>
     <message>
-        <source>Copy Url %1</source>
-        <translation>Kopieer URL %1</translation>
-    </message>
-    <message>
         <source>Download Media Part</source>
         <translation>Download media onderdeel</translation>
+    </message>
+    <message>
+        <source>Sort By Date Ascending</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sort By Date Descending</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sort By Likes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rename</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>configure</name>
     <message>
-        <source>Select A Cookie File</source>
-        <translation>Selecteer een cookiebestand</translation>
-    </message>
-    <message>
         <source>Set Download Folder</source>
         <translation>Stel download map in</translation>
-    </message>
-    <message>
-        <source>Cancel</source>
-        <translation>Annuleer</translation>
     </message>
     <message>
         <source>Remove</source>
@@ -962,6 +1257,46 @@ Exampe 2: ${gateway}:8080</source>
         <source>Copy</source>
         <translation>Kopieer</translation>
     </message>
+    <message>
+        <source>Edit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation type="unfinished">Toevoegen</translation>
+    </message>
+    <message>
+        <source>Set Defaults</source>
+        <translation type="unfinished">Standaardinstellingen instellen</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation type="unfinished">Annuleer</translation>
+    </message>
+    <message>
+        <source>Select A Cookie File</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Name Of Web Browser To Get Cookies From</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Set Path To Cookie File</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Current Ui Scale Factor: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Text Encoding</source>
+        <translation type="unfinished">Tekstcodering</translation>
+    </message>
+    <message>
+        <source>Enable AutoDownloading</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>library</name>
@@ -973,13 +1308,49 @@ Exampe 2: ${gateway}:8080</source>
         <source>Delete All</source>
         <translation>Verwijder alles</translation>
     </message>
+    <message>
+        <source>Rename</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Are You Sure You Want To Delete Below File?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Are You Sure You Want To Delete Below Folder?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Yes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation type="unfinished">Annuleer</translation>
+    </message>
+    <message>
+        <source>Are You Sure You Want To Delete All Files And Folders?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rename File To Below Text</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rename Folder To Below Text</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Are You Sure You Want To Delete Selected Items?</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>logWindow</name>
-    <message>
-        <source>Clear</source>
-        <translation>Wissen</translation>
-    </message>
     <message>
         <source>Close</source>
         <translation>Sluit</translation>
@@ -987,6 +1358,18 @@ Exampe 2: ${gateway}:8080</source>
     <message>
         <source>Log Window</source>
         <translation>Log venster</translation>
+    </message>
+    <message>
+        <source>Show All</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enable Download History</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation type="unfinished">Wissen</translation>
     </message>
 </context>
 <context>

@@ -69,8 +69,7 @@ const char * lux::testData()
 828.86 KiB / 864.65 KiB [======================================================>--] 95.09 KiB p/s 95.86% 0s
 844.86 KiB / 864.65 KiB [=======================================================>-] 95.09 KiB p/s 97.71% 0s
 864.65 KiB / 864.65 KiB [=====================================================] 139.03 KiB p/s 100.00% 6.4s
-Merging video parts into TRIPLE PLAY‼ Braves capitalize on shoddy baserunning by Red Sox - MLB on ESPN.mp4
-)R" ;
+Merging video parts into TRIPLE PLAY‼ Braves capitalize on shoddy baserunning by Red Sox - MLB on ESPN.mp4)R" ;
 }
 
 static void _replaceChars( QByteArray& )
@@ -102,39 +101,49 @@ lux::~lux()
 {
 }
 
-lux::lux( const engines& engines,const engines::engine& engine,QJsonObject&,const QString& df ) :
-	engines::engine::functions( engines.Settings(),engine,engines.processEnvironment() ),
+lux::lux( const engines& engines,const engines::engine& engine,QJsonObject& ) :
+	engines::engine::baseEngine( engines.Settings(),engine,engines.processEnvironment() ),
 	m_engine( engine ),
-	m_downloadFolder( df + "/" )
+	m_downloadFolder( engines.Settings().downloadFolder() + "/" )
 {
 }
 
-engines::engine::functions::DataFilter lux::Filter( int id )
+engines::engine::baseEngine::DataFilter lux::Filter( int id )
 {
 	return { util::types::type_identity< lux::lux_dlFilter >(),m_engine,id,m_downloadFolder.toUtf8() } ;
 }
 
-std::vector<engines::engine::functions::mediaInfo> lux::mediaProperties( Logger& l,const QByteArray& e )
+void lux::setProxySetting( engines::engine::baseEngine::optionsEnvironment& s,QStringList&,const QString& e )
 {
-	QJsonParseError err ;
+	s.add( "HTTPS_PROXY",e ) ;
+}
 
-	auto json = QJsonDocument::fromJson( e,&err ) ;
+std::vector<engines::engine::baseEngine::mediaInfo> lux::mediaProperties( Logger& l,const QByteArray& e )
+{
+	auto json = utility::jsonDoc( e ) ;
 
-	if( err.error == QJsonParseError::NoError ){
+	if( json.valid() ){
 
-		return this->mediaProperties( l,json.array() ) ;
+		return this->mediaProperties( l,json.toArray() ) ;
 	}else{
-		utility::failedToParseJsonData( l,err ) ;
+		utility::failedToParseJsonData( l,json.error() ) ;
 
 		return {} ;
 	}
 }
 
-std::vector<engines::engine::functions::mediaInfo> lux::mediaProperties( Logger&,const QJsonArray& arr )
+std::vector<engines::engine::baseEngine::mediaInfo> lux::mediaProperties( Logger&,const QJsonArray& arr )
 {
-	std::vector<engines::engine::functions::mediaInfo> ent ;
+	std::vector<engines::engine::baseEngine::mediaInfo> ent ;
 
 	Logger::locale locale ;
+
+	QString title ;
+
+	if( arr.size() ){
+
+		title = arr[ 0 ].toObject().value( "title" ).toString() ;
+	}
 
 	for( const auto& it : arr ){
 
@@ -155,9 +164,10 @@ std::vector<engines::engine::functions::mediaInfo> lux::mediaProperties( Logger&
 				resolution = m.takeFirst() ;
 			}
 
-			auto id = obj.value( "id" ).toString() ;
-			auto size = locale.formattedDataSize( obj.value( "size" ).toInt() ) ;
-			auto notes = "Size: " + size + "\n" + m.join( " " ) ;
+			auto id        = obj.value( "id" ).toString() ;
+			auto sizeRaw   = obj.value( "size" ).toInt() ;
+			auto size      = locale.formattedDataSize( sizeRaw ) ;
+			auto notes     = m.join( " " ) ;
 			auto extension = obj.value( "ext" ).toString() ;
 
 			QStringList urls ;
@@ -169,22 +179,20 @@ std::vector<engines::engine::functions::mediaInfo> lux::mediaProperties( Logger&
 				urls.append( it.toObject().value( "url" ).toString() ) ;
 			}
 
-			ent.emplace_back( urls,id,extension,resolution,notes ) ;
+			auto sizeRawInt = QString::number( sizeRaw ) ;
+
+			ent.emplace_back( urls,id,extension,resolution,size,sizeRawInt,notes,"",title ) ;
 		}
 	}
 
 	return ent ;
 }
 
-void lux::runCommandOnDownloadedFile( const QString&,const QString& )
-{
-}
-
 bool lux::foundNetworkUrl( const QString& s )
 {
 	if( utility::platformIsWindows() ){
 
-		if( utility::platformIs32Bit() ){
+		if( utility::CPU().x86_32() ){
 
 			return s.contains( "Windows_i386" ) ;
 		}else{
@@ -193,19 +201,39 @@ bool lux::foundNetworkUrl( const QString& s )
 
 	}else if( utility::platformIsLinux() ){
 
-		if( utility::platformIs32Bit() ){
+		if( utility::CPU().x86_32() ){
 
 			return s.contains( "Linux_i386" ) ;
 		}else{
 			return s.contains( "Linux_x86_64" ) ;
 		}
+
+	}else if( utility::platformIsOSX() ){
+
+		return s.contains( "Darwin_x86_64.tar.gz" ) ;
 	}else{
 		return false ;
 	}
 }
 
-void lux::updateDownLoadCmdOptions( const engines::engine::functions::updateOpts& s,bool e )
+static QByteArray _hash( const QString& r )
 {
+	auto m = utility::simpleRandomNumber() ;
+	auto e = QString::number( m ) + r ;
+
+	QCryptographicHash hash( QCryptographicHash::Sha256 ) ;
+
+	hash.addData( e.toUtf8() ) ;
+
+	return hash.result().toHex().mid( 0,8 ) ;
+}
+
+void lux::updateDownLoadCmdOptions( const engines::engine::baseEngine::updateOpts& s,
+				    bool e,
+				    const QStringList& extraOpts )
+{
+	engines::engine::baseEngine::updateDownLoadCmdOptions( s,e,extraOpts ) ;
+
 	for( int m = 0 ; m < s.ourOptions.size() ; m++ ){
 
 		if( s.ourOptions[ m ] == "-O" ){
@@ -220,35 +248,13 @@ void lux::updateDownLoadCmdOptions( const engines::engine::functions::updateOpts
 
 				if( e.contains( "%(id)s" ) ){
 
-					e.replace( "%(id)s",[ &r ](){
-
-						auto m = std::time( nullptr ) ;
-						auto e = QString::number( m ) + r ;
-
-						QCryptographicHash hash( QCryptographicHash::Sha256 ) ;
-
-						hash.addData( e.toUtf8() ) ;
-
-						return hash.result().toHex().mid( 0,8 ) ;
-					}() ) ;
+					e.replace( "%(id)s",_hash( r ) ) ;
 				}
 
 				break ;
 			}
 		}
 	}
-
-	engines::engine::functions::updateDownLoadCmdOptions( s,e ) ;
-}
-
-static bool _meetCondition( const engines::engine&,const QByteArray& e )
-{
-	return e.contains( "] " ) && e.contains( " p/s " ) ;
-}
-
-static bool _meetLocalCondition( const engines::engine&,const QByteArray& e )
-{
-	return e.contains( ", ETA: " ) ;
 }
 
 class LuxHeader
@@ -274,6 +280,29 @@ public:
 	{
 		return m_fileSizeString ;
 	}
+	QByteArray extension() const
+	{
+		const auto mm = util::split( m_quality,' ' ) ;
+
+		for( const auto& it : mm ){
+
+			if( it.endsWith( ";" ) ){
+
+				auto e = it ;
+
+				auto s = e.replace( ";","" ) ;
+
+				auto ss = s.indexOf( "/" ) ;
+
+				if( ss != -1 ){
+
+					return "." + s.mid( ss + 1 ) ;
+				}
+			}
+		}
+
+		return {} ;
+	}
 	qint64 fileSizeInt() const
 	{
 		return m_fileSizeInt ;
@@ -284,6 +313,8 @@ private:
 		auto data = allData.mid( 0,m ) ;
 
 		m_title = this->getEntry( "Title:","Type:",data ) ;
+
+		m_quality = this->getEntry( "Quality:","Size:",data ) ;
 
 		auto size = this->getEntry( "Size:","#",data ) ;
 
@@ -322,15 +353,18 @@ private:
 	}
 	QByteArray m_title ;
 	QByteArray m_fileSizeString ;
+	QByteArray m_quality ;
 	qint64 m_fileSizeInt = 0 ;
 };
 
-using Output = engines::engine::functions::filterOutPut ;
+using Output = engines::engine::baseEngine::filterOutPut ;
 
-class luxFilter : public engines::engine::functions::filterOutPut
+class luxFilter : public engines::engine::baseEngine::filterOutPut
 {
 public:
-	luxFilter( const engines::engine& engine ) : m_engine( engine )
+	luxFilter( const engines::engine& engine ) :
+		m_engine( engine ),
+		m_callables( luxFilter::meetLocalCondition,luxFilter::skipCondition )
 	{
 	}
 	Output::result formatOutput( const Output::args& args ) const override
@@ -343,7 +377,7 @@ public:
 
 			return this->formatOutput( args,data,m ) ;
 		}else{
-			return { args.outPut,m_engine,_meetLocalCondition } ;
+			return { args.outPut,m_engine,m_callables } ;
 		}
 	}
 	Output::result formatOutput( int mm,
@@ -392,13 +426,13 @@ public:
 				m_tmp = m_tmp + "\n" + e.mid( mm ) ;
 			}
 
-			return { m_tmp,m_engine,_meetLocalCondition } ;
+			return { m_tmp,m_engine,m_callables } ;
 		}else{
 			QString s = "?" ;
 
 			m_tmp = pgr.arg( s,s,s,s,s ).toUtf8() ;
 
-			return { m_tmp,m_engine,_meetLocalCondition } ;
+			return { m_tmp,m_engine,m_callables } ;
 		}
 	}
 	Output::result formatOutput( const Output::args& args,const QByteArray& allData,int m ) const
@@ -417,7 +451,7 @@ public:
 
 		if( mm == -1 ){
 
-			return { args.outPut,m_engine,_meetLocalCondition } ;
+			return { args.outPut,m_engine,m_callables } ;
 		}
 
 		auto ss = allData.mid( mm + 2 ).replace( "p/s","" ) ;
@@ -436,27 +470,37 @@ public:
 
 			m_tmp = pgr.arg( s,s,s,s,s ).toUtf8() ;
 
-			return { m_tmp,m_engine,_meetLocalCondition } ;
+			return { m_tmp,m_engine,m_callables } ;
 		}else{
-			return { args.outPut,m_engine,_meetLocalCondition } ;
+			return { args.outPut,m_engine,m_callables } ;
 		}
 	}
-	bool meetCondition( const engines::engine::functions::filterOutPut::args& args ) const override
+	bool meetCondition( const engines::engine::baseEngine::filterOutPut::args& args ) const override
 	{
-		return _meetCondition( m_engine,args.outPut ) ;
+		const auto& e = args.outPut ;
+		return e.contains( "] " ) && e.contains( " p/s " ) ;
 	}
 	const engines::engine& engine() const override
 	{
 		return m_engine ;
 	}
-private:
+private:	
+	static bool meetLocalCondition( const engines::engine&,const QByteArray& e )
+	{
+		return e.contains( ", ETA: " ) ;
+	}
+	static bool skipCondition( const engines::engine&,const QByteArray& )
+	{
+		return false ;
+	}
 	const engines::engine& m_engine ;
 	mutable QByteArray m_tmp ;
+	engines::engine::baseEngine::filterOutPut::result::callables m_callables ;
 } ;
 
-engines::engine::functions::FilterOutPut lux::filterOutput()
+engines::engine::baseEngine::FilterOutPut lux::filterOutput( int )
 {
-	const engines::engine& engine = engines::engine::functions::engine() ;
+	const engines::engine& engine = engines::engine::baseEngine::engine() ;
 
 	return { util::types::type_identity< luxFilter >(),engine } ;
 }
@@ -464,17 +508,18 @@ engines::engine::functions::FilterOutPut lux::filterOutput()
 QString lux::updateTextOnCompleteDownlod( const QString& uiText,
 					  const QString& bkText,
 					  const QString& dopts,
-					  const engines::engine::functions::finishedState& f )
+					  const QString& tabName,
+					  const engines::engine::baseEngine::finishedState& f )
 {
-	using functions = engines::engine::functions ;
+	using functions = engines::engine::baseEngine ;
 
 	if( f.cancelled() ){
 
-		return functions::updateTextOnCompleteDownlod( bkText,dopts,f ) ;
+		return functions::updateTextOnCompleteDownlod( bkText,dopts,tabName,f ) ;
 
 	}else if( f.success() ){
 
-		return functions::updateTextOnCompleteDownlod( uiText,dopts,f ) ;
+		return functions::updateTextOnCompleteDownlod( uiText,dopts,tabName,f ) ;
 
 	}else if( uiText == "invalid URI for request" ){
 
@@ -488,33 +533,38 @@ QString lux::updateTextOnCompleteDownlod( const QString& uiText,
 
 		return functions::errorString( f,functions::errors::unknownFormat,bkText ) ;
 	}else{
-		auto m = engines::engine::functions::processCompleteStateText( f ) ;
+		auto m = engines::engine::baseEngine::processCompleteStateText( f ) ;
 		return m + "\n" + bkText ;
 	}
 }
 
 lux::lux_dlFilter::lux_dlFilter( const engines::engine& engine,int id,QByteArray df ) :
-	engines::engine::functions::filter( engine,id ),
+	engines::engine::baseEngine::filter( engine,id ),
 	m_banner( ".. " + QObject::tr( "This May Take A Very Long Time" ).toUtf8() + " .." ),
 	m_downloadFolder( std::move( df ) )
 {
 }
 
-const QByteArray& lux::lux_dlFilter::operator()( const Logger::Data& e )
+const QByteArray& lux::lux_dlFilter::operator()( Logger::Data& e )
 {	
 	auto allData = e.toLines() ;
 
 	if( e.doneDownloading() ){
 
-		return this->doneDownloading( allData ) ;
+		const auto& m = this->doneDownloading( allData ) ;
+
+		if( m.isEmpty() ){
+
+			return this->setFileName( e,allData ) ;
+		}else{
+			return m ;
+		}
 	}else{
 		const auto& s = e.lastText() ;
 
 		if( s.startsWith( "Elapsed Time:" ) ){
 
 			m_tmp = m_banner + "\n" + s ;
-
-			return m_tmp ;
 		}else{
 			if( m_title.isEmpty() ){
 
@@ -526,17 +576,19 @@ const QByteArray& lux::lux_dlFilter::operator()( const Logger::Data& e )
 				}
 			}
 
-			if( e.lastLineIsProgressLine() ){
+			if( s.contains( "Merging video parts into " ) ){
+
+				m_tmp = m_title + "\n...Merging Video Parts..." ;
+
+			}else if( e.lastLineIsProgressLine() ){
 
 				m_tmp = m_title + "\n" + e.lastText() ;
-
-				return m_tmp ;
 			}else{
 				m_tmp = m_title + "\n" + m_progress.text() ;
-
-				return m_tmp ;
 			}
 		}
+
+		return m_tmp ;
 	}
 }
 
@@ -591,45 +643,133 @@ const QByteArray& lux::lux_dlFilter::doneDownloading( const QByteArray& allData 
 
 			m_fileName = allData.mid( m + 25 ) ;
 
-			m = m_fileName.indexOf( "[media-downloader]" ) ;
+			m = m_fileName.indexOf( "\n[media-downloader]" ) ;
 
 			if( m != -1 ){
 
 				m_fileName = m_fileName.mid( 0,m ) ;
 			}
-
-			return m_fileName ;
 		}
 	}
 
-	if( m_fileName.isEmpty() ){
+	m_tmp.clear() ;
 
-		if( m_title.isEmpty() ){
+	return m_tmp ;
+}
 
-			//???
-			m_tmp.clear() ;
+QByteArray lux::lux_dlFilter::fileName( const QByteArray& m,const QByteArray& extension )
+{
+	if( m.endsWith( extension ) ){
 
-			return m_tmp ;
+		return m ;
+	}else{
+		return m + extension ;
+	}
+}
+
+const QByteArray& lux::lux_dlFilter::setFileName( Logger::Data& e,const QByteArray& allData )
+{
+	auto extension = LuxHeader( m_locale,allData ).extension() ;
+
+	auto fileNameCmd = this->fileNameFromCmd( e ) ;
+
+	if( fileNameCmd.contains( "%(title)s" ) ){
+
+		auto fileName = this->fileName( fileNameCmd,extension ) ;
+
+		if( m_fileName.isEmpty() || m_fileName.contains( "%(title)s" ) ){
+
+			fileNameCmd.replace( "%(title)s",_title( m_title ) ) ;
 		}else{
-			const auto& m = _title( m_title ) ;
+			fileNameCmd.replace( "%(title)s",m_fileName ) ;
+		}
 
-			if( QFile::exists( m_downloadFolder + m + ".webm" ) ){
+		fileNameCmd = this->fileName( fileNameCmd,extension ) ;
 
-				m_fileName = m + ".webm" ;
+		auto old = m_downloadFolder + fileName ;
+		auto New = m_downloadFolder + fileNameCmd ;
 
-				return m_fileName ;
+		if( QFile::exists( New ) ){
 
-			}else if( QFile::exists( m_downloadFolder + m + ".mp4" ) ){
+			m_tmp = "ERROR: Failed To Rename, Destination Path Already Taken" ;
+			m_tmp += "\n" + fileName ;
 
-				m_fileName = m + ".mp4" ;
+			e.addFileName( fileName ) ;
+		}else{
+			utils::qthread::run( [ = ](){ QFile::rename( old,New ) ; } ) ;
 
-				return m_fileName ;
+			e.addFileName( fileNameCmd ) ;
+
+			m_tmp = fileNameCmd ;
+		}
+
+		return m_tmp ;
+	}else{
+		if( m_fileName.isEmpty() ){
+
+			m_tmp = this->fileName( _title( m_title ),extension ) ;
+		}else{
+			m_tmp = this->fileName( m_fileName,extension ) ;
+		}
+
+		e.addFileName( m_tmp ) ;
+
+		return m_tmp ;
+	}
+}
+
+QByteArray lux::lux_dlFilter::fileNameFromCmd( const Logger::Data& e )
+{	
+	class lux
+	{
+	public:
+		lux( QByteArray& m ) : m_title( m )
+		{
+		}
+		bool operator()( int,const QByteArray& s )
+		{
+			if( this->valid( s ) ){
+
+				return this->setTitle( s ) ;
 			}else{
-				m_tmp = m ;
-				return m_tmp ;
+				return false ;
 			}
 		}
-	}else{
-		return m_fileName ;
-	}
+	private:
+		bool valid( const QByteArray& s )
+		{
+			if( s.startsWith( "[media-downloader] cmd: " ) ){
+
+				return s.contains( "-O" ) ;
+			}else{
+				return false ;
+			}
+		}
+		bool setTitle( const QByteArray& s )
+		{
+			const auto& mm = util::splitPreserveQuotes( s ) ;
+
+			for( auto it = mm.begin() ; it != mm.end() ; it++ ){
+
+				if( *it == "-O" ){
+
+					it++ ;
+
+					if( it != mm.end() ){
+
+						m_title = it->toUtf8() ;
+					}
+				}
+			}
+
+			return true ;
+		}
+		QByteArray& m_title ;
+	} ;
+
+	QByteArray m ;
+
+	e.forEach( lux( m ) ) ;
+
+	return m ;
 }

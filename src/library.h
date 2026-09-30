@@ -39,6 +39,7 @@ class library : public QObject
 	Q_OBJECT
 public:
 	library( const Context& ) ;
+	void keyPressed( utility::mainWindowKeyCombo ) ;
 	void init_done() ;
 	void enableAll() ;
 	void disableAll() ;
@@ -47,27 +48,59 @@ public:
 	void retranslateUi() ;
 	void tabEntered() ;
 	void tabExited() ;
-private slots:
-	void addEntry( const directoryEntries::iter& ) ;
+	void textAlignmentChanged( Qt::LayoutDirection ) ;
 private:
+signals:
+	void addEntrySignal( const directoryEntries::iter& ) ;
+private:
+	class iter
+	{
+	public:
+		iter( int s )
+		{
+			m_entries.emplace_back( s ) ;
+		}
+		iter( std::vector< int > s ) : m_entries( std::move( s ) )
+		{
+		}
+		bool empty() const
+		{
+			return m_entries.size() == 0 ;
+		}
+		int next()
+		{
+			auto m = m_entries.back() ;
+
+			m_entries.pop_back() ;
+
+			return m ;
+		}
+		iter move()
+		{
+			return std::move( *this ) ;
+		}
+	private:
+		std::vector< int > m_entries ;
+	} ;
+	void deleteEntries( library::iter ) ;
+	bool hasMultipleSelections() ;
+	bool deletePath( const QString& ) ;
+	void setRenameUiVisible( bool ) ;
+	void renameFile( int ) ;
+	void deleteEntry( int ) ;
+	void deleteAll() ;
+	void addEntrySlot( const directoryEntries::iter& ) ;
+	void cxMenuRequested( QPoint ) ;
 	void arrangeAndShow() ;
 	void arrangeEntries( int ) ;
-	void enableAll( bool ) ;
-	void disableAll( bool ) ;
-	void internalEnableAll() ;
-	void internalDisableAll() ;
-	void showContents( const QString&,bool disableUi = true ) ;
+	void showContents( const QString& ) ;
 	void moveUp() ;
-	enum class ICON{ FILE,FOLDER } ;
-	void addItem( const QString& text,library::ICON ) ;
+	void addItem( const directoryEntries::iter& ) ;
 	const Context& m_ctx ;
-	bool m_enableGlobalUiChanges ;
 	settings& m_settings ;
-	bool m_enabled ;
-	bool m_disableUi ;
 	std::atomic_bool m_continue ;
 	Ui::MainWindow& m_ui ;
-	tableMiniWidget< ICON > m_table ;
+	tableMiniWidget< directoryEntries::ICON,2 > m_table ;
 	QString m_downloadFolder ;
 	QString m_currentPath ;
 	QPixmap m_folderIcon ;

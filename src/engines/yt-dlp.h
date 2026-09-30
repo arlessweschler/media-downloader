@@ -21,89 +21,122 @@
 #include <QJsonArray>
 
 #include "../engines.h"
+#include "../utility.h"
 
-class yt_dlp : public engines::engine::functions
+class settings ;
+
+class yt_dlp : public engines::engine::baseEngine
 {
 public:
+	static const char * testYtDlpMetadata() ;
+	static const char * testYtDlpPlayList() ;
 	static const char * testYtDlp() ;
 	static const char * testFfmpeg() ;
+	static void checkIfBinaryExist( const QString&,const QString& ) ;
+	static void setNicolaasjanYtdlpOptions( QString& cmd,QString& url ) ;
 
 	static QStringList jsonNoFormatsArgumentList() ;
 
 	~yt_dlp() override ;
 
-	class youtube_dlFilter : public engines::engine::functions::filter
+	class yt_dlplFilter : public engines::engine::baseEngine::filter
 	{
 	public:
-		youtube_dlFilter( int processId,const engines::engine&,bool ) ;
+		yt_dlplFilter( int,const engines::engine&,yt_dlp& ) ;
 
-		const QByteArray& operator()( const Logger::Data& e ) override ;
+		const QByteArray& operator()( Logger::Data& e ) override ;
 
-		~youtube_dlFilter() override ;
+		~yt_dlplFilter() override ;
 	private:
-		const char * compatYear() ;
-
-		const QByteArray& parseOutput( const Logger::Data::QByteArrayList& ) ;
-
+		QByteArray fileName( const Logger::Data& ) ;
+		const QByteArray& parseOutput( const Logger::Data::QByteArrayList&,bool = true ) ;
+		bool hasNewError( const std::vector< QByteArray >& errors,const QByteArray& error ) ;
 		void setFileName( const QByteArray& ) ;
-		engines::engine::functions::preProcessing m_preProcessing ;
-		engines::engine::functions::postProcessing m_postProcessing ;
+		engines::engine::baseEngine::preProcessing m_preProcessing ;
+		engines::engine::baseEngine::postProcessing m_postProcessing ;
 
 		const engines::engine& m_engine ;
 		QByteArray m_tmp ;
-		QByteArray m_fileName ;
+		bool m_mergeSeen = false ;
+		std::vector< QByteArray > m_fileNames ;
+		std::vector< QByteArray > m_errors ;
+		yt_dlp& m_parent ;
 	} ;
 
-	engines::engine::functions::FilterOutPut filterOutput() override ;
+	engines::engine::baseEngine::FilterOutPut filterOutput( int ) override ;
 
-	std::vector< engines::engine::functions::mediaInfo > mediaProperties( Logger&,const QByteArray& ) override ;
+	std::vector< engines::engine::baseEngine::mediaInfo > mediaProperties( Logger&,const QByteArray& ) override ;
 
-	std::vector< engines::engine::functions::mediaInfo > mediaProperties( Logger&,const QJsonArray& ) override ;
-
-	bool breakShowListIfContains( const QStringList& ) override ;
+	std::vector< engines::engine::baseEngine::mediaInfo > mediaProperties( Logger&,const QJsonArray& ) override ;
 
 	bool supportsShowingComments() override ;
 
 	bool updateVersionInfo() override ;
 
-	bool likeYtdlp() override ;
+	bool engineRemovable() override ;
+
+	bool skipCondition( const QByteArray& ) override ;
+
+	QByteArray parseError( const QByteArray& ) override ;
 
 	void updateLocalOptions( QStringList& ) override ;
 
-	void setProxySetting( QStringList&,const QString& ) override ;
+	void setProxySetting( engines::engine::baseEngine::optionsEnvironment&,QStringList&,const QString& ) override ;
 
 	void setTextEncondig( const QString&,QStringList& ) override ;
 
-	engines::engine::functions::DataFilter Filter( int ) override ;
+	const QProcessEnvironment& processEnvironment() const override ;
 
-	void runCommandOnDownloadedFile( const QString&,const QString& ) override ;
+	bool foundNetworkUrl( const QString& s ) override ;
+
+	engines::engine::baseEngine::DataFilter Filter( int ) override ;
 
 	QString updateTextOnCompleteDownlod( const QString& uiText,
 					     const QString& bkText,
 					     const QString& downloadingOptions,
-					     const engines::engine::functions::finishedState& ) override ;
+					     const QString& tabName,
+					     const engines::engine::baseEngine::finishedState& ) override ;
 
-	void updateDownLoadCmdOptions( const engines::engine::functions::updateOpts&,bool ) override ;
+	void updateDownLoadCmdOptions( const engines::engine::baseEngine::updateOpts&,
+				       bool,
+				       const QStringList& ) override ;
 
 	void updateGetPlaylistCmdOptions( QStringList& ) override ;
 
 	void updateCmdOptions( QStringList& ) override ;
 
-	static QJsonObject init( const QString& name,
-				 const QString& configFileName,
-				 Logger& logger,
-				 const engines::enginePaths& enginePath ) ;
+	static QJsonObject cmdNightly( QJsonObject,const QJsonObject& ) ;
 
-	yt_dlp( const engines&,
-		const engines::engine&,
-		QJsonObject&,
-		Logger& logger,
-		const engines::enginePaths&,
-		const util::version& ) ;
+	static QJsonObject cmdFfmpeg( QJsonObject,const QJsonObject& ) ;
+
+	static QJsonObject cmdAria2C( QJsonObject,const QJsonObject& ) ;
+
+	static QJsonObject init() ;
+
+	static void init( const QString& configFileName,
+			  Logger& logger,
+			  const engines::enginePaths& enginePath ) ;
+
+	yt_dlp( const engines&,const engines::engine&,QJsonObject& ) ;
 private:
-	void appendCompatOption( QStringList& ) ;
-	const engines::engine& m_engine ;
+	static QString OSXBinaryName() ;
+	static QString Windows32BitBinaryName() ;
+	static QString Windows64BitBinaryName() ;
+	static QString NicolaasjanYtdlpFor32BitWin7() ;
+	static QString NicolaasjanYtdlpFor64BitWin7() ;
+	static QString NicolaasjanYtdlpUrl() ;
+
+	static const char * jsonFullArguments() ;
+
+	static QJsonObject defaultControlStructure() ;
+	static utility::addJsonCmd::entry::args entryCmd( const QString& ) ;
+	static utility::addJsonCmd::entry::args entryCmdNightly( const QString& ) ;
+
+	bool nightly() ;
+	void parseMetadata( QStringList& mm,const QString& txt,const QString& original,const QString& New ) ;
+	std::vector< engines::engine::baseEngine::mediaInfo >
+	mediaProperties( Logger&,const QJsonArray&,const QJsonObject& ) ;
 	QJsonArray m_objs ;
-	const util::version& m_version ;
-	bool m_likeYtdlp ;
+	QProcessEnvironment m_processEnvironment ;
+	bool m_nightly ;
 };
